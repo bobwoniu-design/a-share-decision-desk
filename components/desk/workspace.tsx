@@ -1374,7 +1374,7 @@ export function SettingsDialog({
           setStatus(
             d.configured
               ? "已配置 · 待实际查询验证"
-              : d.error || "未配置 · 当前使用演示行情",
+              : d.error || "未配置 · 真实行情暂不可用",
           ),
         )
         .catch(() => setStatus("检查失败，请稍后重试"));

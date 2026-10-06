@@ -92,7 +92,7 @@ export function evidence(bars: Bar[]) {
             : "观察";
   return { vwaps, last, above, higher, drawdown, state, vwap: valid };
 }
-function Plot({ bars }: { bars: Bar[] }) {
+export function Plot({ bars }: { bars: Bar[] }) {
   const e = evidence(bars);
   if (!e) return null;
   const min =
@@ -299,7 +299,7 @@ export function RealMarketDialog({
   const { ledger, save, busy } = useDesk();
   const [code, setCode] = useState("600000.SH"),
     [name, setName] = useState(""),
-    [date, setDate] = useState(today()),
+    [date, setDate] = useState("2026-09-30"),
     [rows, setRows] = useState<Bar[]>([]),
     [fetching, setFetching] = useState(false),
     [error, setError] = useState(""),
@@ -310,7 +310,7 @@ export function RealMarketDialog({
     setRows([]);
     try {
       const r = await fetch(
-        "/api/market?code=" + encodeURIComponent(code) + "&date=" + date,
+        "/api/market/history?code=" + encodeURIComponent(code) + "&date=" + date,
       );
       const d = (await r.json()) as {
         error?: string;
@@ -356,7 +356,7 @@ export function RealMarketDialog({
           <DialogTitle>真实行情与自选观察</DialogTitle>
           <DialogDescription>
             Tushare 历史1分钟 ·
-            手动查询。首页市场指标仍为演示，不与个人账本混算。
+            手动查询。成交量单位股，成交额单位元；与个人账本分开记录。
           </DialogDescription>
         </DialogHeader>
         <div className="market-query">

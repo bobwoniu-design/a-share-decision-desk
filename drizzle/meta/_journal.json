@@ -8,6 +8,13 @@
       "when": 1791250991195,
       "tag": "0000_burly_wolverine",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1791252837235,
+      "tag": "0001_sweet_scarlet_witch",
+      "breakpoints": true
     }
   ]
 }

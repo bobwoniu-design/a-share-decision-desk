@@ -4,6 +4,10 @@ import {
   integer,
   primaryKey,
 } from "drizzle-orm/sqlite-core";
+export const marketCache = sqliteTable("market_cache", {
+  cacheKey: text("cache_key").primaryKey(),
+  payload: text("payload").notNull(),
+});
 export const ledgers = sqliteTable("ledgers", {
   owner: text("owner").primaryKey(),
   payload: text("payload").notNull(),
