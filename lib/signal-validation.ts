@@ -23,10 +23,13 @@ export async function validateSignals(code:string,themeCode:string,date:string,r
   if(cached&&cached.until>Date.now())return cached.value;
   if(jobs.has(key))return jobs.get(key)!;
   const work=(async()=>{
-    const calendar=await marketDates(date,requestedDays);
-    if(calendar.dates.at(-1)!==date||calendar.dates.length!==requestedDays)throw new MarketError("历史检验需要完整交易日历，不能跨过缺失日期");
+    // Reuse the same 20-session calendar required by decisionMinutes. A separate
+    // short-range trade_cal fetch adds a cold upstream request to every run.
+    const calendar=await marketDates(date,20);
+    const targetDates=calendar.dates.slice(-requestedDays);
+    if(targetDates.at(-1)!==date||targetDates.length!==requestedDays)throw new MarketError("历史检验需要完整交易日历，不能跨过缺失日期");
     const days:ValidationDay[]=[];
-    for(const day of calendar.dates){
+    for(const day of targetDates){
       try{days.push(evaluateBundle(await decisionMinutes(code,day,"close",themeCode)));}
       catch(e){days.push({date:day,bars:0,basisDate:null,marketAllowed:null,industryAllowed:null,themeAllowed:null,industryPeers:0,themePeers:0,events:[],excluded:[],warnings:[],error:e instanceof Error?e.message:"历史数据不可用"});}
     }
