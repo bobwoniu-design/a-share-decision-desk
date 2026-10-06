@@ -1,10 +1,11 @@
 "use client";
-import { useState } from "react";
-import { HistoricalMarket } from "@/components/desk/history";
+import { useEffect, useState } from "react";
+import { HistoricalMarket, type MarketNavigation } from "@/components/desk/history";
 import {
   Activity,
   BookOpen,
   ChartNoAxesCombined,
+  ListFilter,
   NotebookPen,
   Plus,
   Settings2,
@@ -30,6 +31,8 @@ import {
   SettingsDialog,
 } from "@/components/desk/workspace";
 import { RealMarketDialog } from "@/components/desk/market";
+import { DEFAULT_MARKET_DATE } from "@/lib/market-data";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 export default function ClientDesk() {
   return (
     <DeskProvider>
@@ -39,12 +42,26 @@ export default function ClientDesk() {
 }
 function Home() {
   const [tab, setTab] = useState("market"),
+    [marketNavigation, setMarketNavigation] = useState<MarketNavigation>({mode:"close",date:DEFAULT_MARKET_DATE,code:""}),
     [eventOpen, setEventOpen] = useState(false),
+    [progressOpen, setProgressOpen] = useState(false),
     [settingsOpen, setSettingsOpen] = useState(false),
     [marketOpen, setMarketOpen] = useState(false);
   const { loading, error, refresh, setTrade } = useDesk();
+  useEffect(()=>{
+    try {
+      const saved=window.sessionStorage.getItem("decision-desk-market-view");
+      if(saved){const value=JSON.parse(saved) as Partial<MarketNavigation>;if((value.mode==="close"||value.mode==="live")&&typeof value.date==="string"&&/^\d{4}-\d{2}-\d{2}$/.test(value.date)&&typeof value.code==="string")setMarketNavigation({mode:value.mode,date:value.date,code:value.code});}
+      const view=new URL(window.location.href).searchParams.get("view");
+      if(["market","selection","trades","review","stats"].includes(view??""))setTab(view!);
+    } catch { /* Browser storage can be unavailable. The default view remains usable. */ }
+    const onBack=()=>{const view=new URL(window.location.href).searchParams.get("view");setTab(["market","selection","trades","review","stats"].includes(view??"")?view!:"market");};
+    window.addEventListener("popstate",onBack);return()=>window.removeEventListener("popstate",onBack);
+  },[]);
+  useEffect(()=>{try{window.sessionStorage.setItem("decision-desk-market-view",JSON.stringify(marketNavigation));}catch{}},[marketNavigation]);
+  const changeTab=(view:string)=>{setTab(view);const url=new URL(window.location.href);url.searchParams.set("view",view);window.history.pushState({view},"",url);};
   return (
-    <Tabs value={tab} onValueChange={setTab} className="app">
+    <Tabs value={tab} onValueChange={changeTab} className="app">
       <header className="topbar">
         <div className="brand">
           <ChartNoAxesCombined />
@@ -55,7 +72,8 @@ function Home() {
           {(
             [
               ["market", "市场总览", Activity],
-              ["trades", "交易日志", BookOpen],
+              ["selection", "选股与自选", ListFilter],
+              ["trades", "持仓与交易", BookOpen],
               ["review", "每日复盘", NotebookPen],
               ["stats", "交易统计", ChartNoAxesCombined],
             ] as const
@@ -67,6 +85,7 @@ function Home() {
           ))}
         </TabsList>
         <div className="top-actions">
+          <button className="text-link progress-link" onClick={()=>setProgressOpen(true)}>开发进度</button>
           <button
             className="text-link"
             aria-label="数据与备份"
@@ -87,6 +106,8 @@ function Home() {
             <small>
               {tab === "market"
                 ? "MARKET OVERVIEW"
+                : tab === "selection"
+                  ? "STOCK SELECTION"
                 : tab === "trades"
                   ? "TRADING JOURNAL"
                   : tab === "review"
@@ -96,8 +117,10 @@ function Home() {
             <h1>
               {tab === "market"
                 ? "市场总览"
+                : tab === "selection"
+                  ? "选股与自选"
                 : tab === "trades"
-                  ? "交易日志"
+                  ? "持仓与交易"
                   : tab === "review"
                     ? "每日复盘"
                     : "交易统计"}
@@ -124,10 +147,16 @@ function Home() {
             </button>
           </div>
         )}
-        <TabsContent value="market">
-          <HistoricalMarket onRecordEvent={() => setEventOpen(true)} onReview={() => setTab("review")} />
-        </TabsContent>
+        {(tab==="market"||tab==="selection")&&<HistoricalMarket
+          view={tab==="market"?"overview":"selection"}
+          navigation={marketNavigation}
+          onNavigationChange={setMarketNavigation}
+          onSelectStock={()=>changeTab("selection")}
+          onRecordEvent={() => setEventOpen(true)}
+          onReview={() => changeTab("review")}
+        />}
         <TabsContent value="trades">
+          <Positions />
           <Trades />
         </TabsContent>
         <TabsContent
@@ -145,13 +174,25 @@ function Home() {
         <span>
           <ShieldCheck size={13} /> 人工决策 · 无自动委托
         </span>
-        <span>首页：决策引擎　/　交易与复盘：个人真实记录</span>
-        <span>短线决策台 · v0.5</span>
+        <span>市场总览：环境与板块　/　选股与自选：个股分析</span>
+        <span>短线决策台 · v0.6 开发中</span>
       </footer>
       <TradeDialog />
       <EventDialog open={eventOpen} setOpen={setEventOpen} />
       <SettingsDialog open={settingsOpen} setOpen={setSettingsOpen} />
       <RealMarketDialog open={marketOpen} setOpen={setMarketOpen} />
+      <Dialog open={progressOpen} onOpenChange={setProgressOpen}>
+        <DialogContent className="progress-dialog">
+          <DialogHeader><DialogTitle>开发进度</DialogTitle><DialogDescription>按已上线、开发中和待开发展示；每次发布后更新。</DialogDescription></DialogHeader>
+          <div className="progress-items">
+            <div><span className="tag">已上线</span><b>基础看盘与交易记录 · v0.5</b><p>真实日线和分钟数据、行业评分、个股分钟阶段、持仓、交易记录、复盘与统计。</p></div>
+            <div><span className="tag">本次发布</span><b>五页分工 · v0.6</b><p>市场总览、选股与自选、持仓与交易、每日复盘、交易统计。市场和个股分开展示，切页保留日期与股票。</p></div>
+            <div><span className="tag">开发中</span><b>题材数据核验与主线雷达</b><p>核实题材成员历史、日期与权限后接入；现有行业排名明确标注为行业。</p></div>
+            <div><span className="tag">待开发</span><b>跨日阶段、交易计划与复盘关联</b><p>建立题材跨日阶段、计划版本、成交现场记录和执行质量统计。</p></div>
+          </div>
+          <p className="progress-note">分数与条件仍是待验证规则，买卖由你人工决定。</p>
+        </DialogContent>
+      </Dialog>
     </Tabs>
   );
 }
