@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { auditThemeRows, compareThemeMembers } from "../lib/theme-quality.ts";
-import { scoreThemeDays } from "../lib/themes.ts";
+import { performanceBasket, scoreThemeDays } from "../lib/themes.ts";
 
 const board = "BK1184.DC";
 const entry = (date, code) => ({ trade_date: date, ts_code: board, con_code: code, name: code });
@@ -38,4 +38,18 @@ test("theme screening ranks persistence, preserves missing scores, and cannot re
   assert.deepEqual(eighth.find(t=>t.code==="BK1001.DC")?.history[6],seventh[0].history[6]);
   const flat=days.slice(0,7).map(d=>({...d,rows:d.rows.map(r=>({...r,pct_change:0,turnover_rate:2,up_num:50,down_num:50}))}));
   assert.equal(scoreThemeDays(flat).some(t=>t.label==="主线初筛"||t.label==="主线候选"),false);
+});
+
+test("yesterday performance baskets stay browseable but cannot be labelled a theme mainline", () => {
+  assert.equal(performanceBasket("昨日连板_含一字"),true);
+  assert.equal(performanceBasket("昨日打二板以上表现"),true);
+  assert.equal(performanceBasket("反转股"),true);
+  assert.equal(performanceBasket("CAR-T细胞疗法"),false);
+  const days=Array.from({length:7},(_,i)=>({date:`2026-09-${String(21+i).padStart(2,"0")}`,rows:[
+    {ts_code:"BK1001.DC",name:"昨日连板",pct_change:10,turnover_rate:9,up_num:9,down_num:1},
+    {ts_code:"BK1002.DC",name:"创新药",pct_change:2,turnover_rate:4,up_num:8,down_num:2}
+  ]}));
+  const scored=scoreThemeDays(days);
+  assert.equal(scored.find(t=>t.name==="昨日连板")?.label,"交易表现");
+  assert.equal(scored.find(t=>t.name==="创新药")?.kind,"题材");
 });

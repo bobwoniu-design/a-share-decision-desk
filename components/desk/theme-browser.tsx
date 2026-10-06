@@ -6,7 +6,7 @@ import type { SectorMember } from "@/lib/sectors";
 import type { ThemeDetail } from "@/lib/theme-data";
 import type { ScoredTheme, ThemeOverview } from "@/lib/themes";
 
-const filters=["全部","主线初筛","主线候选","轮动","退潮","待数据"] as const;
+const filters=["全部","主线初筛","主线候选","轮动","退潮","待数据","交易表现"] as const;
 type Filter=(typeof filters)[number];
 const number=(v:number|null,d=0)=>v===null?"—":v.toFixed(d);
 const signed=(v:number|null,d=0)=>v===null?"—":`${v>=0?"+":""}${v.toFixed(d)}`;
@@ -29,8 +29,8 @@ export function ThemeBrowser({date,mode,onSelect}:{date:string;mode:"close"|"liv
   const choose=(theme:ScoredTheme)=>{setDetail(null);setDetailError("");setSelected(theme.code);setShown(Math.max(shown,visible.findIndex(t=>t.code===theme.code)+1));};
   return <Panel title="题材主线雷达" extra={<span className="muted">东财概念 · {overview?.themes.length??"—"} 个</span>} className="theme-browser">
     {loading?<p className="history-small-empty" role="status">正在读取近7个交易日的概念快照并计算初筛…</p>:error?<div className="history-small-empty" role="alert">{error}<button className="text-link" onClick={()=>setRetry(v=>v+1)}>重试</button></div>:overview&&<>
-      <div className="theme-source-line"><b>{overview.asOfDate} 收盘初筛</b><span>{mode==="live"?"盘中仅参考前一交易日；不作为实时题材信号":"按所选日期收盘数据计算；不得回用于当日盘中判断"}</span><span>规则 {overview.version}</span></div>
-      <div className="theme-radar">{themes.filter(t=>t.score!==null).slice(0,3).map(t=><button key={t.code} onClick={()=>choose(t)}><small>题材 {String(t.rank).padStart(2,"0")} · {t.label}</small><span><b>{t.name}</b><strong>{number(t.score)} <em className={(t.delta??0)<0?"down":"up"}>{signed(t.delta)}</em></strong></span><span className="theme-radar-foot"><PhaseTag phase={t.phase}/> 近5日 {signed(t.return5,2)}% · 强势 {t.topDays}/5</span></button>)}</div>
+      <div className="theme-source-line"><b>{overview.asOfDate} 收盘初筛</b><span>{mode==="live"?"盘中仅参考前一交易日；不作为实时题材信号":"按所选日期收盘数据计算；不得回用于当日盘中判断"}</span><span>交易表现分组不进入主线雷达 · 规则 {overview.version}</span></div>
+      <div className="theme-radar">{themes.filter(t=>t.kind==="题材"&&t.score!==null).slice(0,3).map((t,i)=><button key={t.code} onClick={()=>choose(t)}><small>题材 {String(i+1).padStart(2,"0")} · {t.label}</small><span><b>{t.name}</b><strong>{number(t.score)} <em className={(t.delta??0)<0?"down":"up"}>{signed(t.delta)}</em></strong></span><span className="theme-radar-foot"><PhaseTag phase={t.phase}/> 近5日 {signed(t.return5,2)}% · 强势 {t.topDays}/5</span></button>)}</div>
       <div className="board-toolbar"><div className="board-filter-tabs" aria-label="按题材定位筛选">{filters.map(label=><button key={label} className={filter===label?"active":""} aria-pressed={filter===label} onClick={()=>{setFilter(label);setShown(60);setSelected("");}}>{label}<span>{label==="全部"?themes.length:themes.filter(t=>t.label===label).length}</span></button>)}</div><input aria-label="搜索题材" placeholder="搜索题材名称 / 代码" value={query} onChange={e=>{setQuery(e.target.value);setShown(60);setSelected("");}}/></div>
       <div className="board-results">显示 {Math.min(shown,visible.length)} / {visible.length} 个题材 · 评分为收盘规则初筛，成员梯队请点开核查</div>
       {selectedTheme&&<div ref={detailRef} className="board-detail theme-detail"><div className="board-detail-heading"><div><small>{selectedTheme.code} · {overview.asOfDate} · {selectedTheme.label}</small><h3>{selectedTheme.name} <PhaseTag phase={selectedTheme.phase}/></h3></div><button className="text-link" onClick={()=>setSelected("")}>收起详情</button></div>

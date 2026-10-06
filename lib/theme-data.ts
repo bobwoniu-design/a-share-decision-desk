@@ -32,7 +32,7 @@ export async function themeOverview(date:string,mode:ThemeMode):Promise<ThemeOve
       }));
       days.push(...batch);
     }
-    const overview:ThemeOverview={date,asOfDate,mode,source:"Tushare dc_index · 东财概念",version:"THEME-0.1",themes:scoreThemeDays(days),warnings:["主线初筛使用概念日涨幅、连续性、广度和换手；未全量核对每个题材的成员梯队，不能等同于交易方法中的已确认主线。",...(mode==="live"?["概念数据没有可核实的盘中发布时间；盘中仅展示前一交易日收盘快照，不产生实时题材信号。"]:[])],fetchedAt:new Date().toISOString()};
+    const overview:ThemeOverview={date,asOfDate,mode,source:"Tushare dc_index · 东财概念",version:"THEME-0.1",themes:scoreThemeDays(days),warnings:["主线初筛使用概念日涨幅、连续性、广度和换手；未全量核对每个题材的成员梯队，不能等同于交易方法中的已确认主线。","明显的昨日涨停、连板、打板和反转股等交易表现分组单独标识，不参加题材主线雷达。",...(mode==="live"?["概念数据没有可核实的盘中发布时间；盘中仅展示前一交易日收盘快照，不产生实时题材信号。"]:[])],fetchedAt:new Date().toISOString()};
     memory.set(key,{until:Date.now()+300000,value:overview});
     return overview;
   })();
