@@ -27,7 +27,7 @@ export function MarketHistory({date,onDate}:{date:string;onDate:(date:string)=>v
       <svg className="history-trend" viewBox="0 0 1040 210" role="img" aria-label={`近${days}个交易日${series.map(s=>s.name).join("、")}走势；下方提供逐日数值`}>
         {[0,1,2,3].map(i=>{const v=lo+(hi-lo)*i/3;return <g key={i}><line x1="54" x2="984" y1={y(v)} y2={y(v)} stroke="#26344b"/><text x="47" y={y(v)+4} textAnchor="end" fill="#91a4bf" fontSize="11">{v.toFixed(metric==="premium"?1:0)}</text></g>;})}
         {series.map(s=><path key={s.name} d={paths(s.values,x,y)} fill="none" stroke={s.color} strokeWidth="2.3"/>)}
-        {data.dates.map((d,i)=><g key={d}>{i%Math.max(1,Math.ceil(days/10))===0||i===days-1?<text x={x(i)} y="193" textAnchor="middle" fill="#91a4bf" fontSize="11">{d.slice(5)}</text>:null}{series.map(s=>s.values[i]!==null&&<circle key={s.name} cx={x(i)} cy={y(s.values[i]!)} r="3" fill={s.color}><title>{d} {s.name}：{s.values[i]!.toFixed(2)}</title></circle>)}</g>)}
+        {data.dates.map((d,i)=><g key={d}>{i%Math.max(1,Math.ceil(days/10))===0||i===days-1?<text x={x(i)} y="193" textAnchor="middle" fill="#91a4bf" fontSize="11">{d.slice(5)}</text>:null}{series.map(s=>s.values[i]!==null&&<circle key={s.name} cx={x(i)} cy={y(s.values[i]!)} r="3" fill={s.color}><title>{`${d} ${s.name}：${s.values[i]!.toFixed(2)}`}</title></circle>)}</g>)}
       </svg>
       <div className="history-legend">{series.map(s=><span key={s.name}><i style={{background:s.color}}/>{s.name}</span>)}</div>
       <div className="sector-continuity"><span className="muted">行业涨停数前三出现天数</span>{[...sectorDays].sort((a,b)=>b[1]-a[1]).slice(0,5).map(([name,n])=><span className="tag" key={name}>{name} {n}/{rankedDays} 日</span>)}</div>

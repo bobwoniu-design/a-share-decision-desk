@@ -73,7 +73,7 @@ export function dailyHistory(rows:Row[],factors:Row[],code:string,dates:string[]
   for(const r of factors){const f=numeric(r.adj_factor),d=String(r.trade_date);if(r.ts_code!==code||f===null||f<=0||factorMap.has(d))throw new Error("复权因子校验失败");factorMap.set(d,f);}
   const adjusted=data.length>0&&data.every(r=>factorMap.has(r.date.replaceAll("-","")));
   const base=adjusted?factorMap.get(data.at(-1)!.date.replaceAll("-",""))!:null;
-  const values=data.map(r=>base?r.close*factorMap.get(r.date.replaceAll("-",""))!/base:null);
+  const values=data.map(r=>base?r.close*(factorMap.get(r.date.replaceAll("-",""))!/base):null);
   const points=data.map((r,i)=>{
     const factor=base?factorMap.get(r.date.replaceAll("-",""))!/base:null;
     const previous=i>=5?data.slice(i-5,i).reduce((s,p)=>s+p.amountYi,0)/5:null;

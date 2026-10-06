@@ -63,3 +63,9 @@ test("leadership sorts height before percentage; ST and missing-source cases are
  const missing=sectorGroups(prices,basic,null,"2026-09-30")[0];assert.equal(missing.limitUp,null);assert.ok(missing.members.every(m=>m.leaderRank===null));
  assert.throws(()=>sectorGroups(prices,[...basic,basic[0]],[],"2026-09-30"));
 });
+
+test("flat candles preserve exact OHLC equality when adjustment factors cancel",()=>{
+ const r={ts_code:code,trade_date:"20260930",open:6.42,high:6.42,low:6.42,close:6.42,pre_close:5.84,pct_chg:9.93,vol:1000,amount:100000};
+ const h=dailyHistory([r],[{ts_code:code,trade_date:"20260930",adj_factor:2.317}],code,["2026-09-30"]);
+ assert.equal(h.points[0].adjustedClose,h.points[0].adjustedOpen);assert.equal(h.points[0].adjustedClose,h.points[0].adjustedHigh);
+});
