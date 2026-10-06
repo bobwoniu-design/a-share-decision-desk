@@ -49,14 +49,14 @@ function Home() {
   useEffect(()=>{
     try {
       const saved=window.sessionStorage.getItem("decision-desk-market-view");
-      if(saved){const value=JSON.parse(saved) as Partial<MarketNavigation>;if((value.mode==="close"||value.mode==="live")&&typeof value.date==="string"&&/^\d{4}-\d{2}-\d{2}$/.test(value.date)&&typeof value.code==="string")setMarketNavigation({mode:value.mode,date:value.date,code:value.code});}
+      if(saved){const value=JSON.parse(saved) as Partial<MarketNavigation>;if((value.mode==="close"||value.mode==="live")&&typeof value.date==="string"&&/^\d{4}-\d{2}-\d{2}$/.test(value.date)&&typeof value.code==="string")setMarketNavigation({mode:value.mode,date:value.date,code:value.code,themeCode:typeof value.themeCode==="string"&&/^BK\d+\.DC$/.test(value.themeCode)?value.themeCode:undefined});}
       const view=new URL(window.location.href).searchParams.get("view");
       if(["market","selection","trades","review","stats"].includes(view??""))setTab(view!);
     } catch { /* Browser storage can be unavailable. The default view remains usable. */ }
     const onBack=()=>{const view=new URL(window.location.href).searchParams.get("view");setTab(["market","selection","trades","review","stats"].includes(view??"")?view!:"market");};
     window.addEventListener("popstate",onBack);return()=>window.removeEventListener("popstate",onBack);
   },[]);
-  useEffect(()=>{try{window.sessionStorage.setItem("decision-desk-market-view",JSON.stringify({mode:marketNavigation.mode,date:marketNavigation.date,code:marketNavigation.code}));}catch{}},[marketNavigation]);
+  useEffect(()=>{try{window.sessionStorage.setItem("decision-desk-market-view",JSON.stringify({mode:marketNavigation.mode,date:marketNavigation.date,code:marketNavigation.code,themeCode:marketNavigation.themeCode}));}catch{}},[marketNavigation]);
   const changeTab=(view:string)=>{setTab(view);const url=new URL(window.location.href);url.searchParams.set("view",view);window.history.pushState({view},"",url);};
   return (
     <Tabs value={tab} onValueChange={changeTab} className="app">
@@ -171,7 +171,7 @@ function Home() {
           <ShieldCheck size={13} /> 人工决策 · 无自动委托
         </span>
         <span>市场总览：环境与板块　/　选股与自选：个股分析</span>
-        <span>短线决策台 · v0.9.1 开发中</span>
+        <span>短线决策台 · v1.0 开发中</span>
       </footer>
       <TradeDialog />
       <SettingsDialog open={settingsOpen} setOpen={setSettingsOpen} />
@@ -187,7 +187,9 @@ function Home() {
             <div><span className="tag">已上线</span><b>题材全景 · v0.8</b><p>东财概念按历史日期独立评分和筛选；点开可查看当日真实成分、涨跌分布及梯队候选。</p></div>
             <div><span className="tag">已上线</span><b>题材主线资格独立核验 · v0.9</b><p>题材强度排名与主线资格分开；满足日线条件后再核对历史成分的涨停梯队。</p></div>
             <div><span className="tag">本次发布</span><b>行业主线资格独立核验 · v0.9.1</b><p>行业也分开显示强度和资格，逐项核对覆盖、强度、持续性、广度与梯队；资格未通过时不再当作分钟信号的主线条件。</p></div>
-            <div><span className="tag">待开发</span><b>市场策略、角色与交易机会</b><p>下一批将分步连接市场状态、题材与个股角色，再形成可解释的候选和盘中条件。</p></div>
+            <div><span className="tag">本次发布</span><b>市场策略与交叉验证 · v1.0</b><p>市场情绪生成观察策略；题材、行业和个股交叉核对，展示题材内龙头、龙二、龙三及容量候选。</p></div>
+            <div><span className="tag">本次发布</span><b>可解释候选与盘中同步 · v1.0</b><p>选股池分开展示地位与观察机会预评；个股三笔条件增加题材历史归属和独立题材样本的同分钟同步核对。</p></div>
+            <div><span className="tag">待开发</span><b>后续两项</b><p>信号历史验证与个人交易反馈仍待完成；目前规则分不代表胜率，也不自动交易。</p></div>
           </div>
           <p className="progress-note">分数与条件仍是待验证规则，买卖由你人工决定。</p>
         </DialogContent>

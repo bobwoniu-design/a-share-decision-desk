@@ -9,12 +9,20 @@ export type CoreStock={code:string;name:string;sector:string;score:number|null;d
 export type IndustryCheck={name:string;result:"通过"|"未通过"|"待核验";detail:string};
 export type IndustryQualification={status:"通过"|"未通过"|"待核验";checks:IndustryCheck[]};
 export type ScoredSector={name:string;score:number|null;delta:number|null;rank:number;phase:Phase;label:string;qualification:IndustryQualification;factors:Factor[];history:{date:string;score:number|null;phase:Phase}[];cores:CoreStock[];coverage:number;total:number;averagePct:number|null;amountYi:number;topDays:number};
-export type MarketDecision={score:number|null;delta:number|null;cycle:string;previousCycle:string|null;phase:Phase;earning:string;risk:string;posture:string;factors:Factor[];promotion:{value:number|null;advanced:number;total:number};highPremium:{value:number|null;matched:number;total:number};history:{date:string;score:number|null;cycle:string;phase:Phase}[]};
+export type MarketPlaybook={stance:string;focus:string;avoid:string;reason:string;allowNewRisk:boolean|null};
+export type MarketDecision={score:number|null;delta:number|null;cycle:string;previousCycle:string|null;phase:Phase;earning:string;risk:string;posture:string;playbook:MarketPlaybook;factors:Factor[];promotion:{value:number|null;advanced:number;total:number};highPremium:{value:number|null;matched:number;total:number};history:{date:string;score:number|null;cycle:string;phase:Phase}[]};
 export type DecisionOverview={date:string;asOf:string;mode:"close"|"live";market:MarketDecision;sectors:ScoredSector[];cores:CoreStock[];warnings:string[];fetchedAt:string;version:string;dates:string[]};
 const clamp=(n:number)=>Math.max(0,Math.min(100,n));
 const norm=(n:number,min:number,max:number)=>clamp((n-min)/(max-min)*100);
 const mean=(v:number[])=>v.length?v.reduce((s,n)=>s+n,0)/v.length:0;
 const fmt=(v:number|null,n=1)=>v===null?"缺失":v.toFixed(n);
+export function marketPlaybook(score:number|null,cycle:string,phase:Phase,risk:string):MarketPlaybook{
+  if(score===null||risk==="待数据")return {stance:"证据不足",focus:"先核对市场数据与持仓风险",avoid:"根据不完整排名建立新候选",reason:"市场评分或高位风险缺少可信输入",allowNewRisk:null};
+  if(risk==="高"||cycle==="退潮"||score<45)return {stance:"防守观察",focus:"检查持仓逻辑失效，等待核心止跌",avoid:"高位加速与后排跟风",reason:`情绪 ${score} · ${cycle} · 高位风险${risk}`,allowNewRisk:false};
+  if(cycle==="分歧"||phase==="分歧")return {stance:"等待承接",focus:"跟踪主线核心分歧后的承接与板块修复",avoid:"分歧中追一致性后排",reason:`情绪 ${score} · ${cycle} · 阶段${phase}`,allowNewRisk:true};
+  if(score>=80||phase==="加速")return {stance:"高位谨慎",focus:"观察已有核心能否维持结构，等待下一次分歧",avoid:"加速时追后排",reason:`情绪 ${score} · ${cycle} · 阶段${phase}`,allowNewRisk:true};
+  return {stance:"观察主线确认",focus:"先核对题材与行业，再等待核心股分钟条件",avoid:"脱离主线只看个股涨幅",reason:`情绪 ${score} · ${cycle} · 高位风险${risk}`,allowNewRisk:true};
+}
 const qualificationCheck=(name:string,passed:boolean|null,detail:string):IndustryCheck=>({name,result:passed===null?"待核验":passed?"通过":"未通过",detail});
 function industryQualification(g:SectorGroup,day:DecisionDay,topDays:number,complete:boolean,relativeRank:number|null,relativeTotal:number):IndustryQualification{
   const highs=g.members.filter(m=>m.limit==="U").map(m=>m.height).filter((h):h is number=>h!==null&&Number.isInteger(h)&&h>=1);
@@ -132,7 +140,8 @@ export function buildDecision(days:DecisionDay[],warnings:string[]=[]):DecisionO
     const cycle=score===null?"待数据":score<30?"冰点":delta!==null&&delta<=-10?"退潮":score>=80?"高潮":delta!==null&&delta>=8&&prev!==null&&prev<55?"修复":score>=60?"发酵":delta!==null&&delta<0?"分歧":"修复";
     const high=mf.highPremium.value,risk=mf.highPremium.total>0&&high===null||mf.br===null?"待数据":(high!==null&&high<0)||(mf.br??0)>40?"高":(high!==null&&high<2)||(mf.br??0)>25?"中":"低";
     marketHistory.push({date:day.date,score,cycle,phase});
-    market={score,delta,cycle,previousCycle:lastMarket?.cycle??null,phase,earning:score===null?"待数据":score>=65?"偏强":score>=45?"分化":"偏弱",risk,posture:score===null?"数据不足，暂停条件提示":score<45||risk==="高"?"防守观察，优先核查持仓失效条件":score>=80?"情绪偏热，等待分歧后的结构确认":"聚焦高分板块核心，等待分钟条件",factors:mf.factors,promotion:mf.promotion,highPremium:mf.highPremium,history:[...marketHistory]};
+    const playbook=marketPlaybook(score,cycle,phase,risk);
+    market={score,delta,cycle,previousCycle:lastMarket?.cycle??null,phase,earning:score===null?"待数据":score>=65?"偏强":score>=45?"分化":"偏弱",risk,posture:playbook.focus,playbook,factors:mf.factors,promotion:mf.promotion,highPremium:mf.highPremium,history:[...marketHistory]};
     const ranked=day.groups.filter(g=>g.name!=="未分类"&&g.traded>=3).slice().sort((a,b)=>(b.averagePct??-999)-(a.averagePct??-999)||(b.limitUp??0)-(a.limitUp??0));
     const currentRanks=new Map(ranked.map((g,j)=>[g.name,j+1]));
     const next=day.groups.map(g=>{

@@ -1,6 +1,6 @@
 import type { Bar } from "./market-data";
 
-export const ENGINE_VERSION = "P0.1";
+export const ENGINE_VERSION = "P0.2";
 export const PHASES = ["一致", "分歧", "承接", "转强", "加速", "转弱"] as const;
 export type Phase = typeof PHASES[number] | "观察" | "待数据";
 export type Check = { label:string; pass:boolean|null; detail:string };
@@ -10,11 +10,11 @@ export type MinuteFrame = {
   scores:Record<typeof PHASES[number],number>; checks:Check[];
   vwap:number|null; above:number; drawdown:number; volumeRatio:number|null;
   higherLow:boolean; breakout:boolean; turnover:number|null; turnoverAcceleration:number|null;
-  supportLow:number|null; invalidated:boolean; confirmed:boolean; sync:boolean|null;
+  supportLow:number|null; invalidated:boolean; confirmed:boolean; sync:boolean|null; themeSync:boolean|null;
 };
 export type PeerSeries = {code:string;name:string;preClose:number;bars:Bar[];error?:string};
 export type SectorMinute = {time:string;phase:Phase;aboveRatio:number|null;upRatio:number|null;returnPct:number|null;coverage:number;total:number;strong:boolean|null;weak:boolean|null;reason:string};
-export type MinuteContext = {preClose?:number;floatShares?:number;upLimit?:number;mainlineCore?:boolean|null;marketAllowed?:boolean|null;sector?:SectorMinute[]};
+export type MinuteContext = {preClose?:number;floatShares?:number;upLimit?:number;mainlineCore?:boolean|null;themeAllowed?:boolean|null;marketAllowed?:boolean|null;sector?:SectorMinute[];theme?:SectorMinute[]};
 const mean=(a:number[])=>a.length?a.reduce((s,v)=>s+v,0)/a.length:0;
 const min=(a:Bar[])=>Math.min(...a.map(b=>b.low));
 const max=(a:Bar[])=>Math.max(...a.map(b=>b.high));
@@ -37,7 +37,7 @@ export function minuteFresh(date:string,last:string|undefined,now=new Date()){
 export function minuteEngine(input:Bar[],context:MinuteContext={}){
   const bars=input.filter(b=>tradingMinute(b.time)!==null);
   if(new Set(bars.map(b=>b.time)).size!==bars.length||bars.some((b,i)=>i>0&&b.time<=bars[i-1].time))throw new Error("分钟顺序或唯一性错误");
-  const frames:MinuteFrame[]=[],transitions:Transition[]=[],sector=new Map((context.sector??[]).map(p=>[p.time,p]));
+  const frames:MinuteFrame[]=[],transitions:Transition[]=[],sector=new Map((context.sector??[]).map(p=>[p.time,p])),theme=new Map((context.theme??[]).map(p=>[p.time,p]));
   let phase:Phase="观察",since=bars[0]?.time??"",amount=0,volume=0,above=0,below=0,missing=0;
   let divergence=false,supportLow:number|null=null,invalidated=false,confirmed=false,peak=0,proposed:Phase="观察",streak=0;
   for(let i=0;i<bars.length;i++){
@@ -64,6 +64,7 @@ export function minuteEngine(input:Bar[],context:MinuteContext={}){
     const turnover=context.floatShares&&context.floatShares>0?volume/context.floatShares*100:null;
     const turnoverAcceleration=turnover!==null&&ratio!==null?ratio:null;
     const peer=sector.get(b.time),sync=peer?.strong??null,weakSector=peer?.weak??null;
+    const themePeer=theme.get(b.time),themeSync=themePeer?.strong??null,weakTheme=themePeer?.weak??null;
     const quality=i>=19&&missing===0&&vwap!==null;
     const div=drawdown>=2&&(ratio!==null&&ratio>=1.3||amplitude>=3||broken);
     if(div)divergence=true;
@@ -72,7 +73,7 @@ export function minuteEngine(input:Bar[],context:MinuteContext={}){
     const strength=confirm&&breakout&&ratio!==null&&ratio>=1.3&&b.close>b.open&&sync===true;
     const slope=i>=6?(b.close/bars[i-3].close-1)*100:0,priorSlope=i>=6?(bars[i-3].close/bars[i-6].close-1)*100:0;
     const accelerate=["转强","加速"].includes(phase)&&above>=3&&breakout&&ratio!==null&&ratio>=1.6&&slope>=.5&&slope>Math.max(.1,priorSlope)*1.5&&sync===true;
-    const weak=below>=3&&lowerLow&&lowerHigh&&(ratio!==null&&ratio>=1.2||weakSector===true);
+    const weak=below>=3&&lowerLow&&lowerHigh&&(ratio!==null&&ratio>=1.2||weakSector===true||weakTheme===true);
     if(supportLow!==null&&b.close<supportLow*.998&&quality)invalidated=true;
     const scores={
       一致:clamp((above>=3?35:0)+(higherLow?20:0)+(drawdown<1?25:0)+(sync===true?20:0)),
@@ -100,25 +101,27 @@ export function minuteEngine(input:Bar[],context:MinuteContext={}){
     }
     confirmed=quality&&!invalidated&&confirm&&["承接","转强","加速"].includes(phase);
     const checks:Check[]=[
-      {label:"市场环境允许观察",pass:context.marketAllowed??null,detail:"前日情绪≥45且高位风险非高；实时模式再核对当前市场"},
-      {label:"主线核心",pass:context.mainlineCore??null,detail:"前一交易日板块分≥65、核心度≥65"},
+      {label:"市场环境允许观察",pass:context.marketAllowed??null,detail:"前日市场观察策略允许；实时模式再核对当前市场"},
+      {label:"行业核心",pass:context.mainlineCore??null,detail:"前一交易日行业主线资格初筛通过且核心度≥65"},
+      {label:"题材归属与资格",pass:context.themeAllowed??null,detail:"前一交易日题材主线资格初筛通过，且个股属于当时成分"},
       {label:"分歧已出现",pass:quality?divergence:null,detail:`前高回撤 ${drawdown.toFixed(2)}%`},
       {label:"承接结构",pass:quality?supported:null,detail:drying?"下跌缩量且低点抬高":`低点${higherLow?"抬高":"未抬高"} · 反弹${rebound.toFixed(2)}%`},
       {label:"站稳 VWAP",pass:quality?above>=3:null,detail:`连续 ${above} 根在均价上方`},
       {label:"上涨放量",pass:quality&&ratio!==null?ratio>=1.3&&b.close>b.open:null,detail:ratio===null?"样本不足":`近5分钟 / 前15分钟均量 ${ratio.toFixed(2)}倍`},
-      {label:"板块同步",pass:sync,detail:peer?.reason??"尚未取得同分钟板块样本"},
+      {label:"行业同步",pass:sync,detail:peer?.reason??"尚未取得同分钟行业独立样本"},
+      {label:"题材同步",pass:themeSync,detail:themePeer?.reason??"尚未取得同分钟题材独立样本"},
       {label:"突破前高",pass:quality?breakout:null,detail:priorHigh===null?"等待10根分钟":`此前10分钟高点 ${priorHigh.toFixed(3)}`}
     ];
-    const eligible=quality&&b.vol>0&&context.marketAllowed===true&&context.mainlineCore===true;
+    const eligible=quality&&b.vol>0&&context.marketAllowed===true&&context.mainlineCore===true&&context.themeAllowed===true;
     let signal="观察";
     if(!quality)signal="数据不足 · 暂停条件提示";
     else if(invalidated)signal="逻辑失效";
     else if(phase==="转弱")signal="风险：转弱";
-    else if(eligible&&["转强","加速"].includes(phase)&&sync===true&&confirmed)signal="第三笔条件出现：转强";
-    else if(eligible&&confirmed&&sync===true)signal="第二笔条件出现：确认";
-    else if(eligible&&phase==="承接"&&supported&&weakSector===false)signal="第一笔条件出现：承接";
+    else if(eligible&&["转强","加速"].includes(phase)&&sync===true&&themeSync===true&&confirmed&&breakout&&ratio!==null&&ratio>=1.3&&b.close>b.open)signal="第三笔条件出现：转强";
+    else if(eligible&&confirmed&&sync===true&&themeSync===true)signal="第二笔条件出现：确认";
+    else if(eligible&&phase==="承接"&&supported&&weakSector===false&&weakTheme===false)signal="第一笔条件出现：承接";
     else if(["承接","转强","加速"].includes(phase))signal="价格结构出现 · 决策链条件未齐";
-    frames.push({time:b.time,phase,since,signal,quality,missing,scores,checks,vwap,above,drawdown,volumeRatio:ratio,higherLow,breakout,turnover,turnoverAcceleration,supportLow,invalidated,confirmed,sync});
+    frames.push({time:b.time,phase,since,signal,quality,missing,scores,checks,vwap,above,drawdown,volumeRatio:ratio,higherLow,breakout,turnover,turnoverAcceleration,supportLow,invalidated,confirmed,sync,themeSync});
   }
   return {frames,transitions,current:frames.at(-1)??null};
 }

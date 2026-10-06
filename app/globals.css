@@ -1298,3 +1298,16 @@ input[type="datetime-local"] {
 .theme-more{display:flex;justify-content:center;padding:3px 12px 15px}
 @media(max-width:850px){.theme-radar{grid-template-columns:1fr}.theme-member-summary{grid-template-columns:repeat(3,minmax(0,1fr))}.market-dimension-tabs>span{margin-left:0;width:100%}.theme-qualification>div,.industry-qualification>div{grid-template-columns:1fr}}
 @media(max-width:480px){.theme-member-summary{grid-template-columns:repeat(2,minmax(0,1fr))}.theme-score-summary strong{font-size:26px}.theme-radar b{font-size:15px}}
+
+/* The decision funnel keeps status, role and opportunity separate. */
+.market-playbook{display:grid;grid-template-columns:minmax(170px,1.1fr) repeat(2,minmax(180px,1fr)) auto;gap:12px;align-items:center;padding:11px 14px;margin:8px 0;border:1px solid #365575;border-radius:7px;background:#172a43;color:#c9dbef}
+.market-playbook>div{display:flex;flex-direction:column;gap:3px}.market-playbook>div small,.market-playbook>small{color:#93abc8;font-size:12px}.market-playbook strong{font-size:17px;color:#eaf4ff}.market-playbook>div span{font-size:12px;color:#a7bed8}
+.market-playbook p{display:flex;flex-direction:column;gap:3px;margin:0;font-size:13px}.market-playbook p b{color:#8fbdf0;font-size:12px}
+.funnel-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1px;background:#2b405a}.funnel-summary span{display:flex;flex-direction:column;padding:10px 13px;background:#16263c}.funnel-summary b{color:#e4f0ff;font-size:18px}.funnel-summary small{color:#9ab0cd;font-size:12px}
+.funnel-context{display:flex;align-items:center;gap:11px;padding:11px 13px;border-bottom:1px solid #2b405a;color:#bbd0ea;font-size:13px;flex-wrap:wrap}.funnel-context b{color:#f2d998}.funnel-context small{margin-left:auto;color:#91a9c7;font-size:12px}
+.funnel-filters{padding:9px 12px}.funnel-table-wrap{overflow-x:auto}.funnel-table{min-width:760px}.funnel-table td{vertical-align:middle}.funnel-table td small{display:block;color:#8da5c3;font-size:12px;margin-top:3px}.funnel-table td b{color:#d7e8fc}.funnel-status{display:inline-block;padding:3px 7px;border:1px solid #526985;border-radius:4px;color:#a8bfda;white-space:nowrap}.funnel-status.focus{border-color:#5fae90;color:#8fe0bd}
+.funnel-explain{padding:12px 14px;border-top:1px solid #304662;background:#14243a}.funnel-explain>div:first-child{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}.funnel-explain>div:first-child b{font-size:15px;color:#e6f0fe}.funnel-explain>div:first-child span,.funnel-explain>small{color:#9db5d0;font-size:12px}.funnel-explain-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:11px;margin-top:10px}.funnel-explain-grid section{padding:10px;background:#1a2c45;border:1px solid #314a67;border-radius:6px}.funnel-explain-grid small{color:#8ebbea;font-size:12px}.funnel-explain-grid p{color:#c4d5e9;font-size:13px;margin:7px 0 0;line-height:1.4}
+.minute-state-heading{grid-template-columns:repeat(3,minmax(0,1fr))}
+@media(max-width:950px){.market-playbook{grid-template-columns:repeat(2,minmax(0,1fr))}.funnel-explain-grid{grid-template-columns:1fr}}
+@media(max-width:850px){.minute-state-heading{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:560px){.market-playbook,.minute-state-heading{grid-template-columns:1fr}.funnel-summary{grid-template-columns:repeat(2,minmax(0,1fr))}}
