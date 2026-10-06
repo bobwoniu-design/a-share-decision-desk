@@ -4,7 +4,9 @@ import type { Phase } from "./minute-engine";
 
 export type ThemeDay={date:string;rows:Row[]};
 export type ThemePoint={date:string;pct:number|null;score:number|null;phase:Phase};
-export type ScoredTheme={code:string;name:string;kind:"题材"|"交易表现";score:number|null;delta:number|null;rank:number;label:string;phase:Phase;pct:number|null;return5:number|null;turnover:number|null;breadth:number|null;up:number|null;down:number|null;leading:string;leadingCode:string;topDays:number;factors:Factor[];history:ThemePoint[]};
+export type ThemeCheck={name:string;result:"通过"|"未通过"|"待核验";detail:string};
+export type ThemeQualification={status:"通过"|"未通过"|"待核验";checks:ThemeCheck[];limitUp:number|null;maxHeight:number|null;memberCoverage:string|null};
+export type ScoredTheme={code:string;name:string;kind:"题材"|"交易表现";score:number|null;delta:number|null;rank:number;label:string;phase:Phase;pct:number|null;return5:number|null;turnover:number|null;breadth:number|null;up:number|null;down:number|null;leading:string;leadingCode:string;topDays:number;relativeStrength:number|null;qualification:ThemeQualification;factors:Factor[];history:ThemePoint[]};
 export type ThemeOverview={date:string;asOfDate:string;mode:"close"|"live";source:string;version:string;themes:ScoredTheme[];warnings:string[];fetchedAt:string};
 
 const fmt=(n:number|null,digits=1)=>n===null?"缺失":n.toFixed(digits);
@@ -13,6 +15,37 @@ const percentile=(values:number[],v:number|null)=>v===null||!values.length?null:
 export const performanceBasket=(name:string)=>/^昨日(?:涨停|首板|连板|打[一二三四五六七八九十\d]+板)/.test(name)||name==="反转股";
 // Match the decision engine's 80% known-weight gate; missing factors never become zero.
 const weightedScore=(factors:Factor[])=>{const known=factors.filter(f=>f.score!==null&&Number.isFinite(f.score)),weight=known.reduce((s,f)=>s+f.weight,0),total=factors.reduce((s,f)=>s+f.weight,0);return !total||weight/total<.8?null:Math.round(known.reduce((s,f)=>s+Math.max(0,Math.min(100,f.score!))*f.weight,0)/weight);};
+function check(name:string,ok:boolean|null,detail:string):ThemeCheck{return {name,result:ok===null?"待核验":ok?"通过":"未通过",detail};}
+function qualify(t:Pick<ScoredTheme,"kind"|"pct"|"return5"|"topDays"|"breadth"|"relativeStrength">&{complete:boolean}):ThemeQualification{
+  if(t.kind==="交易表现")return {status:"未通过",checks:[],limitUp:null,maxHeight:null,memberCoverage:null};
+  const checks=[
+    check("当日相对强度",t.pct===null||t.relativeStrength===null?null:t.pct>0&&t.relativeStrength>=80,`涨幅 ${fmt(t.pct,2)}% · 同源分位 ${fmt(t.relativeStrength,0)}，要求前20%且上涨`),
+    check("持续性",t.complete?t.topDays>=3:null,`近5日强势 ${t.complete?t.topDays:"缺失"}/5，要求至少3日`),
+    check("五日累计",t.return5===null?null:t.return5>0,`复合涨幅 ${fmt(t.return5,2)}%，要求大于0`),
+    check("内部广度",t.breadth===null?null:t.breadth>=55,`上涨占比 ${fmt(t.breadth,0)}%，要求至少55%`),
+    check("成分涨停梯队",null,"待核对所选日历史成分与涨停名单；要求至少2只涨停且最高至少2板")
+  ];
+  return {status:checks.some(c=>c.result==="未通过")?"未通过":"待核验",checks,limitUp:null,maxHeight:null,memberCoverage:null};
+}
+export function withThemeLadder(t:ScoredTheme,evidence:{limitUp:number;maxHeight:number;traded:number;members:number}|null):ScoredTheme{
+  if(t.kind!=="题材"||t.qualification.status==="未通过")return t;
+  const coverage=evidence&&evidence.members>0?evidence.traded/evidence.members:null;
+  const ladder=check("成分涨停梯队",coverage===null||coverage<.8?null:evidence!.limitUp>=2&&evidence!.maxHeight>=2,
+    evidence?`涨停 ${evidence.limitUp} 只 · 最高 ${evidence.maxHeight} 板 · 行情覆盖 ${evidence.traded}/${evidence.members}${(coverage??0)<.8?"，覆盖不足80%":""}`:"历史成分或涨停名单不可用，保持待核验");
+  const checks=[...t.qualification.checks.slice(0,-1),ladder];
+  const status:ThemeQualification["status"]=checks.some(c=>c.result==="未通过")?"未通过":checks.every(c=>c.result==="通过")?"通过":"待核验";
+  const qualification:ThemeQualification={status,checks,limitUp:evidence?.limitUp??null,maxHeight:evidence?.maxHeight??null,memberCoverage:evidence?`${evidence.traded}/${evidence.members}`:null};
+  return {...t,qualification,label:status==="通过"?"主线初筛":status==="待核验"?"待梯队核验":themeLabel({...t,qualification})};
+}
+function themeLabel(t:Pick<ScoredTheme,"kind"|"score"|"phase"|"qualification"|"pct"|"topDays"|"return5">):string{
+  if(t.kind==="交易表现")return "交易表现";
+  if(t.score===null)return "待数据";
+  if(t.phase==="转弱"||t.score<40)return "退潮";
+  if(t.qualification.status==="通过")return "主线初筛";
+  if(t.qualification.status==="待核验")return "待梯队核验";
+  const passed=t.qualification.checks.filter(c=>c.result==="通过").length;
+  return passed>=3&&t.pct!==null&&t.pct>0?"主线候选":"轮动";
+}
 function phaseFor(score:number|null,old:number|null,prior:Phase):Phase{
   if(score===null)return "待数据";
   if(old===null)return score>=65?"一致":score>=45?"观察":"分歧";
@@ -59,13 +92,15 @@ export function scoreThemeDays(days:ThemeDay[]):ScoredTheme[]{
       const old=state.get(code),score=i>=5&&complete?weightedScore(factors):null;
       const delta=score!==null&&old?.score!=null?score-old.score:null;
       const phase=phaseFor(score,old?.score??null,old?.phase??"观察");
-      state.set(code,{code,name:String(r.name),kind:performanceBasket(String(r.name))?"交易表现":"题材",score,delta,phase,pct,return5,turnover,breadth,up,down,leading:String(r.leading??""),leadingCode:String(r.leading_code??""),topDays,factors,history:[...(old?.history??[]),{date:days[i].date,pct,score,phase}]});
+      const kind=performanceBasket(String(r.name))?"交易表现":"题材",relativeStrength=percentile(pcts,pct);
+      const qualification=qualify({kind,pct,return5,topDays,breadth,relativeStrength,complete});
+      state.set(code,{code,name:String(r.name),kind,score,delta,phase,pct,return5,turnover,breadth,up,down,leading:String(r.leading??""),leadingCode:String(r.leading_code??""),topDays,relativeStrength,qualification,factors,history:[...(old?.history??[]),{date:days[i].date,pct,score,phase}]});
     }
   }
   const current=days.at(-1)!;
   const scored=current.rows.map(r=>{
     const s=state.get(String(r.ts_code))!;
-    const label=s.kind==="交易表现"?"交易表现":s.score===null?"待数据":s.phase==="转弱"||s.score<40?"退潮":s.score>=75&&s.topDays>=3&&s.return5!==null&&s.return5>0&&s.breadth!==null&&s.breadth>=50?"主线初筛":s.score>=65&&(s.pct??0)>0&&(s.return5??0)>0?"主线候选":"轮动";
+    const label=themeLabel(s);
     return {...s,rank:0,label};
   }).sort((a,b)=>(a.kind===b.kind?0:a.kind==="题材"?-1:1)||(b.score??-1)-(a.score??-1)||(b.pct??-Infinity)-(a.pct??-Infinity)||a.code.localeCompare(b.code));
   scored.forEach((s,i)=>s.rank=i+1);

@@ -2,7 +2,7 @@ import { auditThemeRows, compareThemeMembers } from "./theme-quality";
 import { dailyRows, type Row } from "./market-data";
 import { sectorGroups, type SectorGroup } from "./sectors";
 import { marketDates, MarketError, tushare } from "./tushare";
-import { scoreThemeDays, type ThemeOverview } from "./themes";
+import { scoreThemeDays, withThemeLadder, type ThemeOverview } from "./themes";
 
 const indexFields="ts_code,trade_date,name,leading,leading_code,pct_change,leading_pct,total_mv,turnover_rate,up_num,down_num,idx_type";
 const memberFields="trade_date,ts_code,con_code,name";
@@ -32,7 +32,39 @@ export async function themeOverview(date:string,mode:ThemeMode):Promise<ThemeOve
       }));
       days.push(...batch);
     }
-    const overview:ThemeOverview={date,asOfDate,mode,source:"Tushare dc_index · 东财概念",version:"THEME-0.1",themes:scoreThemeDays(days),warnings:["主线初筛使用概念日涨幅、连续性、广度和换手；未全量核对每个题材的成员梯队，不能等同于交易方法中的已确认主线。","明显的昨日涨停、连板、打板和反转股等交易表现分组单独标识，不参加题材主线雷达。",...(mode==="live"?["概念数据没有可核实的盘中发布时间；盘中仅展示前一交易日收盘快照，不产生实时题材信号。"]:[])],fetchedAt:new Date().toISOString()};
+    let themes=scoreThemeDays(days);
+    const pending=themes.filter(t=>t.qualification.status==="待核验"&&t.score!==null);
+    const warnings=["题材强度分只衡量相对表现；主线资格另查当日强度、五日持续、五日累计、上涨广度与成员涨停梯队。阈值是待回测的初版规则，缺项保持待核验，主线初筛不等于交易确认。","明显的昨日涨停、连板、打板和反转股等交易表现分组单独标识，不参加题材主线雷达。",...(mode==="live"?["概念数据没有可核实的盘中发布时间；盘中仅展示前一交易日收盘快照，不产生实时题材信号。"]:[])];
+    if(pending.length>20)warnings.push(`日线资格符合 ${pending.length} 个题材；本次按强度先核对前20个，余下保持待梯队核验。`);
+    if(pending.length){
+      const key=asOfDate.replaceAll("-","");
+      let limits:Row[]|null=null,daily:Row[]|null=null;
+      try{
+        const [l,d]=await Promise.all([tushare("limit_list_d",{trade_date:key},limitFields,2500),tushare("daily",{trade_date:key},"ts_code,trade_date,close,pre_close,pct_chg,amount")]);
+        if(!d.rows.length||l.rows.some(r=>r.trade_date!==key)||d.rows.some(r=>r.trade_date!==key))throw new Error("日期或行情不完整");
+        limits=l.rows;daily=d.rows;
+      }catch{warnings.push("所选日涨停名单或日线不可用；符合日线条件的题材暂列待梯队核验。");}
+      if(limits&&daily){
+        const quoted=new Set(daily.map(r=>String(r.ts_code))),limitMap=new Map(limits.filter(r=>r.limit==="U").map(r=>[String(r.ts_code),r]));
+        const checked=new Map<string,ReturnType<typeof withThemeLadder>>();
+        for(let i=0;i<Math.min(20,pending.length);i+=2){
+          const batch=pending.slice(i,i+2);
+          const results=await Promise.allSettled(batch.map(t=>tushare("dc_member",{ts_code:t.code,trade_date:key},memberFields,5000)));
+          results.forEach((result,j)=>{
+            const t=batch[j];
+            if(result.status!=="fulfilled"||!auditThemeRows(result.value.rows,asOfDate,"member",t.code).usable){checked.set(t.code,withThemeLadder(t,null));return;}
+            const members=new Set(result.value.rows.map(r=>String(r.con_code)));
+            const hits=[...members].flatMap(code=>{const l=limitMap.get(code);return l?[l]:[];});
+            const heights=hits.map(r=>Number(r.limit_times));
+            if(heights.some(n=>!Number.isInteger(n)||n<1)){checked.set(t.code,withThemeLadder(t,null));return;}
+            checked.set(t.code,withThemeLadder(t,{limitUp:hits.length,maxHeight:Math.max(0,...heights),traded:[...members].filter(code=>quoted.has(code)).length,members:members.size}));
+          });
+        }
+        themes=themes.map(t=>checked.get(t.code)??t);
+        if([...checked.values()].some(t=>t.qualification.status==="待核验"))warnings.push("部分题材的历史成分或梯队证据不足，资格保持待核验。");
+      }
+    }
+    const overview:ThemeOverview={date,asOfDate,mode,source:"Tushare dc_index · 东财概念",version:"THEME-0.2",themes,warnings,fetchedAt:new Date().toISOString()};
     memory.set(key,{until:Date.now()+300000,value:overview});
     return overview;
   })();

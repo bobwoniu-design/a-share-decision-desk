@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { auditThemeRows, compareThemeMembers } from "../lib/theme-quality.ts";
-import { performanceBasket, scoreThemeDays } from "../lib/themes.ts";
+import { performanceBasket, scoreThemeDays, withThemeLadder } from "../lib/themes.ts";
 
 const board = "BK1184.DC";
 const entry = (date, code) => ({ trade_date: date, ts_code: board, con_code: code, name: code });
@@ -31,13 +31,29 @@ test("theme screening ranks persistence, preserves missing scores, and cannot re
   ]}));
   const seventh=scoreThemeDays(days.slice(0,7));
   assert.equal(seventh[0].code,"BK1001.DC");
-  assert.equal(seventh[0].label,"主线初筛");
+  assert.equal(seventh[0].label,"主线候选");
+  assert.equal(seventh[0].qualification.status,"未通过");
   assert.equal(seventh.find(t=>t.code==="BK1003.DC")?.score,null);
   assert.ok(seventh[0].delta!==null);
   const eighth=scoreThemeDays(days);
   assert.deepEqual(eighth.find(t=>t.code==="BK1001.DC")?.history[6],seventh[0].history[6]);
   const flat=days.slice(0,7).map(d=>({...d,rows:d.rows.map(r=>({...r,pct_change:0,turnover_rate:2,up_num:50,down_num:50}))}));
   assert.equal(scoreThemeDays(flat).some(t=>t.label==="主线初筛"||t.label==="主线候选"),false);
+});
+
+test("a high theme score never grants mainline status without dated member ladder evidence", () => {
+  const days=Array.from({length:7},(_,i)=>({date:`2026-09-${String(21+i).padStart(2,"0")}`,rows:[
+    {ts_code:"BK1001.DC",name:"持续强势",pct_change:4,turnover_rate:8,up_num:80,down_num:20},
+    ...Array.from({length:4},(_,j)=>({ts_code:`BK100${j+2}.DC`,name:`对比题材${j}`,pct_change:1-j,turnover_rate:3,up_num:35,down_num:65}))
+  ]}));
+  const theme=scoreThemeDays(days).find(t=>t.code==="BK1001.DC");
+  assert.equal(theme.qualification.status,"待核验");
+  assert.equal(theme.label,"待梯队核验");
+  assert.equal(withThemeLadder(theme,{limitUp:1,maxHeight:4,traded:20,members:20}).label,"主线候选");
+  assert.equal(withThemeLadder(theme,{limitUp:3,maxHeight:2,traded:15,members:20}).label,"待梯队核验");
+  const passed=withThemeLadder(theme,{limitUp:3,maxHeight:2,traded:20,members:20});
+  assert.equal(passed.label,"主线初筛");
+  assert.equal(passed.qualification.checks.at(-1).result,"通过");
 });
 
 test("yesterday performance baskets stay browseable but cannot be labelled a theme mainline", () => {
