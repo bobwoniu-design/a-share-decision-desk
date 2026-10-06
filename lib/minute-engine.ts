@@ -44,7 +44,9 @@ export function minuteEngine(input:Bar[],context:MinuteContext={}){
     const b=bars[i],t=tradingMinute(b.time)!;
     missing+=i?Math.max(0,t-tradingMinute(bars[i-1].time)!-1):Math.max(0,t-1);
     amount+=b.amount;volume+=b.vol;const vwap=volume>0?amount/volume:null;
-    above=vwap!==null&&b.vol>0&&b.close>vwap?above+1:0;below=vwap!==null&&b.vol>0&&b.close<vwap?below+1:0;
+    // Official zero-volume bars still contain an observed reference price (e.g. closing auction).
+    // They can maintain a price condition, but never create an actionable condition on their own.
+    above=vwap!==null&&b.close>vwap*(1+1e-8)?above+1:0;below=vwap!==null&&b.close<vwap*(1-1e-8)?below+1:0;
     const recent=bars.slice(Math.max(0,i-4),i+1),previous=bars.slice(Math.max(0,i-9),Math.max(0,i-4));
     const baseline=bars.slice(Math.max(0,i-19),Math.max(0,i-4));
     const recentMean=mean(recent.map(p=>p.vol)),baseMean=mean(baseline.map(p=>p.vol));
@@ -88,7 +90,7 @@ export function minuteEngine(input:Bar[],context:MinuteContext={}){
     else if(strength){target="转强";reason="站稳VWAP、低点抬高、放量突破且板块同步";}
     else if(supported){target="承接";reason="分歧后低点抬高，缩量下跌或反弹增强";}
     else if(div){target="分歧";reason=`有序回撤${drawdown.toFixed(2)}%，伴随放量、振幅扩张或炸板`;}
-    else if(!divergence&&above>=3&&drawdown<1){target="一致";reason="持续位于均价上方，回撤小于1%";}
+    else if(!divergence&&(above>=3||!!context.upLimit&&b.close>=context.upLimit-.005)&&drawdown<1){target="一致";reason="持续位于均价上方或封于涨停，回撤小于1%";}
     else if(["待数据","观察","一致"].includes(phase)){target="观察";reason="方向条件尚未满足";}
     // Positive upgrades need two consecutive evaluations; data/risk downgrades are immediate.
     streak=target===proposed?streak+1:1;proposed=target;
