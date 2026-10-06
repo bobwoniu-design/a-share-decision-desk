@@ -51,11 +51,11 @@ export type MarketSnapshot = {
 };
 
 export type DailyPoint = {
-  date:string; close:number; preClose:number; adjustedClose:number|null; ma5:number|null; ma20:number|null; pct:number; amountYi:number;
+  date:string; open:number; high:number; low:number; close:number; preClose:number; volShou:number; adjustedOpen:number|null; adjustedHigh:number|null; adjustedLow:number|null; adjustedClose:number|null; ma5:number|null; ma20:number|null; pct:number; amountYi:number; amountMa5:number|null; amountRatio5:number|null;
 };
 export type DailyHistory = {
   code:string; date:string; requestedDays:number; dates:string[]; points:DailyPoint[]; missingDates:string[];
-  adjusted:boolean; return5:number|null; return20:number|null; warnings:string[]; fetchedAt:string;
+  suspendedDates:string[]; adjusted:boolean; return5:number|null; return20:number|null; warnings:string[]; fetchedAt:string;
 };
 export function tradingDates(rows:Row[],end:string,count:number){
   return [...new Set(rows.filter(r=>Number(r.is_open)===1).map(r=>String(r.cal_date)))].filter(d=>/^\d{8}$/.test(d)&&d<=end.replaceAll("-","")).sort().slice(-count).map(d=>`${d.slice(0,4)}-${d.slice(4,6)}-${d.slice(6)}`);
@@ -65,17 +65,23 @@ export function dailyHistory(rows:Row[],factors:Row[],code:string,dates:string[]
   const data=rows.map(r=>{
     const date=String(r.trade_date),close=numeric(r.close),preClose=numeric(r.pre_close),pct=numeric(r.pct_chg),amount=numeric(r.amount);
     if(r.ts_code!==code||!wanted.has(date)||seen.has(date)||close===null||close<=0||preClose===null||preClose<=0||pct===null||amount===null||amount<0)throw new Error("日线时间序列校验失败");
-    seen.add(date);return {date:`${date.slice(0,4)}-${date.slice(4,6)}-${date.slice(6)}`,close,preClose,pct,amountYi:amount/100000};
+    const open=numeric(r.open),high=numeric(r.high),low=numeric(r.low),vol=numeric(r.vol);
+    if(open===null||high===null||low===null||vol===null||vol<0||low<=0||low>Math.min(open,close)||high<Math.max(open,close))throw new Error("日线开高低收或成交量校验失败");
+    seen.add(date);return {open,high,low,volShou:vol,date:`${date.slice(0,4)}-${date.slice(4,6)}-${date.slice(6)}`,close,preClose,pct,amountYi:amount/100000};
   }).sort((a,b)=>a.date.localeCompare(b.date));
   const factorMap=new Map<string,number>();
   for(const r of factors){const f=numeric(r.adj_factor),d=String(r.trade_date);if(r.ts_code!==code||f===null||f<=0||factorMap.has(d))throw new Error("复权因子校验失败");factorMap.set(d,f);}
   const adjusted=data.length>0&&data.every(r=>factorMap.has(r.date.replaceAll("-","")));
   const base=adjusted?factorMap.get(data.at(-1)!.date.replaceAll("-",""))!:null;
   const values=data.map(r=>base?r.close*factorMap.get(r.date.replaceAll("-",""))!/base:null);
-  const points=data.map((r,i)=>({...r,adjustedClose:values[i],ma5:adjusted&&i>=4?values.slice(i-4,i+1).reduce<number>((a,v)=>a+v!,0)/5:null,ma20:adjusted&&i>=19?values.slice(i-19,i+1).reduce<number>((a,v)=>a+v!,0)/20:null}));
+  const points=data.map((r,i)=>{
+    const factor=base?factorMap.get(r.date.replaceAll("-",""))!/base:null;
+    const previous=i>=5?data.slice(i-5,i).reduce((s,p)=>s+p.amountYi,0)/5:null;
+    return {...r,adjustedOpen:factor===null?null:r.open*factor,adjustedHigh:factor===null?null:r.high*factor,adjustedLow:factor===null?null:r.low*factor,adjustedClose:values[i],ma5:adjusted&&i>=4?values.slice(i-4,i+1).reduce<number>((a,v)=>a+v!,0)/5:null,ma20:adjusted&&i>=19?values.slice(i-19,i+1).reduce<number>((a,v)=>a+v!,0)/20:null,amountMa5:i>=4?data.slice(i-4,i+1).reduce((s,p)=>s+p.amountYi,0)/5:null,amountRatio5:previous&&previous>0?r.amountYi/previous:null};
+  });
   const byDate=new Map(points.map(p=>[p.date,p]));
   const change=(n:number)=>{const last=byDate.get(dates.at(-1)!),previous=byDate.get(dates.at(-n-1)!);return last?.adjustedClose&&previous?.adjustedClose?(last.adjustedClose/previous.adjustedClose-1)*100:null;};
-  return {code,date:dates.at(-1)??"",requestedDays:dates.length,dates,points,missingDates:dates.filter(d=>!byDate.has(d)),adjusted,return5:change(5),return20:change(20)};
+  return {code,suspendedDates:[],date:dates.at(-1)??"",requestedDays:dates.length,dates,points,missingDates:dates.filter(d=>!byDate.has(d)),adjusted,return5:change(5),return20:change(20)};
 }
 export type TimelinePoint = Pick<MarketSnapshot,"date"|"coverage"|"limits"|"premium"|"sectors"|"warnings">;
 export type MarketTimeline = {date:string;dates:string[];points:TimelinePoint[];failures:{date:string;error:string}[];fetchedAt:string};

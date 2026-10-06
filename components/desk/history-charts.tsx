@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState, type ReactNode } from "react";
 import { Panel } from "./workspace";
+import { DailyChart } from "./daily-chart";
 import type { DailyHistory, MarketTimeline } from "@/lib/market-data";
 const pct=(n:number|null|undefined)=>n==null?"—":`${n>=0?"+":""}${n.toFixed(2)}%`;
 function useHistory<T>(url:string|null){
@@ -40,20 +41,13 @@ export function InstrumentHistory({stock,date,minutes}:{stock:HistoryStock|undef
   const {data,error,busy,retry}=useHistory<DailyHistory>(stock?`/api/market/context?view=daily&date=${date}&code=${stock.code}`:null);
   const dates=data?.dates.slice(-7)??[date],minuteDate=dates.includes(selectedDay)?selectedDay:dates.at(-1)!;
   const minutePoint=data?.points.find(p=>p.date===minuteDate),minuteStock=stock?{...stock,preClose:minutePoint?.preClose??(minuteDate===date?stock.preClose:undefined)}:undefined;
-  const points=data?.dates.map(d=>data.points.find(p=>p.date===d)??null)??[];
-  const lines=[{label:data?.adjusted?"前复权收盘":"原始收盘",color:"#ddeaff",values:points.map(p=>p?(data?.adjusted?p.adjustedClose:p.close):null)},{label:"MA5",color:"#fbbf24",values:points.map(p=>p?.ma5??null)},{label:"MA20",color:"#a78bfa",values:points.map(p=>p?.ma20??null)}];
-  const vals=lines.flatMap(l=>l.values.filter((n):n is number=>n!==null)),min=Math.min(...vals),max=Math.max(...vals),pad=Math.max((max-min)*.08,.01),lo=min-pad,hi=max+pad,x=(i:number)=>52+i/Math.max(points.length-1,1)*590,y=(v:number)=>20+(hi-v)/(hi-lo)*210;
-  return <div className="column instrument-history"><div className="history-controls instrument-controls"><div className="history-switch"><button aria-pressed={mode==="daily"} className={mode==="daily"?"active":""} onClick={()=>setMode("daily")}>60日趋势</button><button aria-pressed={mode==="minute"} className={mode==="minute"?"active":""} onClick={()=>setMode("minute")}>7日分时回放</button></div>{mode==="minute"&&<select aria-label="分时交易日" value={minuteDate} onChange={e=>setSelectedDay(e.target.value)}>{dates.slice().reverse().map(d=><option key={d} value={d}>{d}</option>)}</select>}</div>
+  return <div className="column instrument-history"><div className="history-controls instrument-controls"><div className="history-switch"><button aria-pressed={mode==="daily"} className={mode==="daily"?"active":""} onClick={()=>setMode("daily")}>日K · 60交易日</button><button aria-pressed={mode==="minute"} className={mode==="minute"?"active":""} onClick={()=>setMode("minute")}>7日分时回放</button></div>{mode==="minute"&&<select aria-label="分时交易日" value={minuteDate} onChange={e=>setSelectedDay(e.target.value)}>{dates.slice().reverse().map(d=><option key={d} value={d}>{d}</option>)}</select>}</div>
     {mode==="minute"?minutes(minuteStock,minuteDate):<Panel title={stock?.name||"个股历史趋势"} extra={<span className="muted">{stock?.code??"选择股票"}</span>} className="chart-panel">
       {!stock?<p className="history-empty">选择持仓、自选或当日候选股。</p>:busy?<p className="history-empty" role="status">正在读取 60 个交易日日线与复权因子…</p>:error?<div className="history-empty" role="alert">{error}<button className="button" onClick={retry}>重试</button></div>:data&&<>
         <div className="quote"><strong className={(data.points.at(-1)?.pct??0)<0?"down":"up"}>{data.points.at(-1)?.close.toFixed(2)} <span>{pct(data.points.at(-1)?.pct)}</span></strong><span>{data.points.at(-1)?.date} 收盘 · 未复权</span></div>
         <div className="evidence"><div><small>近 5 交易日涨幅</small><b>{pct(data.return5)}</b></div><div><small>近 20 交易日涨幅</small><b>{pct(data.return20)}</b></div><div><small>有效日线</small><b>{data.points.length}/{data.dates.length}</b></div></div>
-        <svg className="daily-history-chart" viewBox="0 0 700 275" role="img" aria-label="60个交易日收盘价和5、20根均线，下方提供逐日价格">
-          {[0,1,2,3].map(i=>{const v=lo+(hi-lo)*i/3;return <g key={i}><line x1="52" x2="642" y1={y(v)} y2={y(v)} stroke="#26344b"/><text x="45" y={y(v)+4} textAnchor="end" fill="#91a4bf" fontSize="11">{v.toFixed(2)}</text></g>;})}
-          {lines.map(l=><path key={l.label} d={paths(l.values,x,y)} fill="none" stroke={l.color} strokeWidth="2"/>)}
-          {data.dates.map((d,i)=>(i%12===0||i===data.dates.length-1)&&<text key={d} x={x(i)} y="255" textAnchor="middle" fill="#91a4bf" fontSize="11">{d.slice(5)}</text>)}
-        </svg><div className="history-legend">{lines.map(l=><span key={l.label}><i style={{background:l.color}}/>{l.label}</span>)}</div>
-        <p className="history-caption">{data.dates[0]} — {data.dates.at(-1)}。均线使用最近 5 / 20 根有效日线；前复权以窗口最后一条行情为基准。区间涨幅使用复权价格，不是你的持仓收益。</p>
+        <DailyChart data={data}/>
+        <details className="chart-method"><summary>复权与成交额口径</summary><p className="history-caption">{data.dates[0]} — {data.dates.at(-1)}。均线使用最近 5 / 20 根有效日线；前复权以窗口最后一条行情为基准。区间涨幅使用复权价格，不是你的持仓收益。成交额与成交量为原始成交统计，不复权；较前5日均额使用该日前5根有效日线，不含当日。</p></details>
         {data.warnings.map(w=><p className="history-caption amber-text" key={w}>{w}</p>)}
         <details className="history-details"><summary>逐日价格与数据来源</summary><div className="history-table-wrap daily-price-table"><table className="history-table"><thead><tr><th>日期</th><th>收盘</th><th>复权收盘</th><th>当日涨跌</th><th>成交额/亿</th></tr></thead><tbody>{data.dates.slice().reverse().map(d=>{const p=data.points.find(r=>r.date===d);return <tr key={d}><td>{d}</td>{p?<><td>{p.close.toFixed(2)}</td><td>{p.adjustedClose?.toFixed(3)??"—"}</td><td>{pct(p.pct)}</td><td>{p.amountYi.toFixed(2)}</td></>:<td colSpan={4}>缺失，未补值</td>}</tr>;})}</tbody></table></div><p>Tushare daily + adj_factor；获取于 {new Date(data.fetchedAt).toLocaleString("zh-CN",{timeZone:"Asia/Shanghai"})}。区间边界缺行情或复权因子不完整时不输出区间收益。</p></details>
       </>}

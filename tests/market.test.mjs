@@ -27,7 +27,7 @@ test("history calendar excludes closures and future rows and counts trading days
  assert.deepEqual(tradingDates(rows,"2026-09-30",3),["2026-09-28","2026-09-29","2026-09-30"]);
 });
 const code="600000.SH",dates=Array.from({length:25},(_,i)=>`2026-09-${String(i+1).padStart(2,"0")}`);
-const daily=dates.map((d,i)=>({ts_code:code,trade_date:d.replaceAll("-",""),close:i<10?20:10,pre_close:i<10?20:10,pct_chg:0,amount:100000}));
+const daily=dates.map((d,i)=>({ts_code:code,trade_date:d.replaceAll("-",""),open:i<10?20:10,high:i<10?22:11,low:i<10?18:9,vol:10000,close:i<10?20:10,pre_close:i<10?20:10,pct_chg:0,amount:100000}));
 const factors=daily.map((r,i)=>({ts_code:code,trade_date:r.trade_date,adj_factor:i<10?1:2}));
 test("adjustment prevents a split from creating a false return or moving-average discontinuity",()=>{
  const h=dailyHistory(daily,factors,code,dates);
@@ -41,4 +41,25 @@ test("daily history rejects wrong symbols, extra dates, and duplicate rows",()=>
  assert.throws(()=>dailyHistory([...daily,daily[0]],factors,code,dates));
  assert.throws(()=>dailyHistory(daily,factors,"000001.SZ",dates));
  assert.throws(()=>dailyHistory(daily,factors,code,dates.slice(1)));
+});
+test("OHLC is adjusted consistently while money and volume stay unadjusted",()=>{
+ const h=dailyHistory(daily,factors,code,dates),p=h.points[0];assert.equal(p.adjustedOpen,10);assert.equal(p.adjustedHigh,11);assert.equal(p.adjustedLow,9);assert.equal(p.amountYi,1);assert.equal(p.volShou,10000);
+ assert.throws(()=>dailyHistory([{...daily[0],high:5}],factors,code,[dates[0]]));
+ const varying=daily.map((r,i)=>({...r,amount:i===5?200000:100000}));
+ const v=dailyHistory(varying,factors,code,dates);assert.equal(v.points[4].amountRatio5,null);assert.equal(v.points[5].amountRatio5,2);assert.equal(v.points[5].amountMa5,1.2);
+});
+import {sectorGroups} from "../lib/sectors.ts";
+test("sector coverage includes non-candidates, declining and missing stocks, excludes future listings",()=>{
+ const basic=[1,2,3,4].map(n=>({ts_code:`60000${n}.SH`,name:`股票${n}`,industry:"行业甲",list_date:n===4?"20261010":"20200101"}));
+ const prices=[{code:"600001.SH",close:11,pct:10,amount:1e8,preClose:10},{code:"600002.SH",close:9,pct:-10,amount:2e8,preClose:10}];
+ const g=sectorGroups(prices,basic,[{ts_code:"600001.SH",limit:"U",limit_times:2}],"2026-09-30")[0];
+ assert.equal(g.total,3);assert.equal(g.traded,2);assert.equal(g.up,1);assert.equal(g.down,1);assert.equal(g.flat,0);assert.equal(g.averagePct,0);assert.equal(g.amountYi,3);assert.equal(g.members.find(m=>m.code==="600003.SH").quote,null);assert.equal(g.members[0].leaderRank,1);
+});
+test("leadership sorts height before percentage; ST and missing-source cases are not auto-leaders",()=>{
+ const basic=[1,2,3].map(n=>({ts_code:`60000${n}.SH`,name:n===3?"ST例子":`股票${n}`,industry:"行业甲",list_date:"20200101"}));
+ const prices=[{code:"600001.SH",close:11,pct:10,amount:1e8,preClose:10},{code:"600002.SH",close:12,pct:20,amount:3e8,preClose:10},{code:"600003.SH",close:12,pct:20,amount:4e8,preClose:10}];
+ const ranked=sectorGroups(prices,basic,[{ts_code:"600001.SH",limit:"U",limit_times:4},{ts_code:"600002.SH",limit:"U",limit_times:1}],"2026-09-30")[0];
+ assert.equal(ranked.members[0].code,"600001.SH");assert.equal(ranked.members[1].leaderRank,2);assert.equal(ranked.members[2].leaderRank,null);
+ const missing=sectorGroups(prices,basic,null,"2026-09-30")[0];assert.equal(missing.limitUp,null);assert.ok(missing.members.every(m=>m.leaderRank===null));
+ assert.throws(()=>sectorGroups(prices,[...basic,basic[0]],[],"2026-09-30"));
 });
