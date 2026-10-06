@@ -9,6 +9,7 @@ import {
   toCSV,
   parseCSV,
 } from "../lib/ledger.ts";
+import {personalFeedback} from "../lib/personal-feedback.ts";
 let n = 0;
 const t = (
   side,
@@ -70,6 +71,18 @@ test("跨日与期初持仓", () => {
   assert.equal(dailySummary(ledger, "2026-09-25").count, 0);
   assert.equal(dailySummary(ledger, "2026-09-28").realized, 95);
   assert.equal(dailySummary(ledger, "2026-09-28").positions[0].qty, 100);
+});
+test("个人反馈排除期初快照，按首次买入计划与含费平仓结果分类",()=>{
+  const ledger=blankLedger();ledger.trades=[
+    t("opening",100,10,0,"2026-09-25T15:00"),t("sell",100,12,0,"2026-09-26T10:00"),
+    t("buy",100,10,5,"2026-09-27T10:00"),t("sell",100,11,5,"2026-09-28T10:00"),
+    t("buy",100,10,0,"2026-09-29T10:00",{discipline:"临时操作",plan:"",reason:""}),t("sell",100,9,0,"2026-09-30T10:00"),
+  ];
+  const f=personalFeedback(ledger);
+  assert.equal(f.excludedOpeningCycles,1);assert.equal(f.closedCycles,2);
+  assert.equal(f.buckets.find(b=>b.label==="按计划盈利").count,1);
+  assert.equal(f.buckets.find(b=>b.label==="偏离计划亏损").count,1);
+  assert.equal(f.pending.length,1);assert.equal(f.pending[0].issues.length,2);
 });
 test("超卖及撤销关联买入时拒绝损坏账本", () => {
   assert.throws(() => calculate([t("sell", 100, 10)]), /超过/);

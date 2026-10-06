@@ -171,7 +171,7 @@ function Home() {
           <ShieldCheck size={13} /> 人工决策 · 无自动委托
         </span>
         <span>市场总览：环境与板块　/　选股与自选：个股分析</span>
-        <span>短线决策台 · v1.0 开发中</span>
+        <span>短线决策台 · v1.1 开发中</span>
       </footer>
       <TradeDialog />
       <SettingsDialog open={settingsOpen} setOpen={setSettingsOpen} />
@@ -189,7 +189,9 @@ function Home() {
             <div><span className="tag">本次发布</span><b>行业主线资格独立核验 · v0.9.1</b><p>行业也分开显示强度和资格，逐项核对覆盖、强度、持续性、广度与梯队；资格未通过时不再当作分钟信号的主线条件。</p></div>
             <div><span className="tag">本次发布</span><b>市场策略与交叉验证 · v1.0</b><p>市场情绪生成观察策略；题材、行业和个股交叉核对，展示题材内龙头、龙二、龙三及容量候选。</p></div>
             <div><span className="tag">本次发布</span><b>可解释候选与盘中同步 · v1.0</b><p>选股池分开展示地位与观察机会预评；个股三笔条件增加题材历史归属和独立题材样本的同分钟同步核对。</p></div>
-            <div><span className="tag">待开发</span><b>后续两项</b><p>信号历史验证与个人交易反馈仍待完成；目前规则分不代表胜率，也不自动交易。</p></div>
+            <div><span className="tag">本次发布</span><b>历史信号检验 · v1.1</b><p>在选股页按需检验所选股票与题材的近1、3或5个交易日；逐日展示资格、信号、数据缺口及下一分钟到收盘的假设价格变化。</p></div>
+            <div><span className="tag">本次发布</span><b>个人执行反馈 · v1.1</b><p>统计买卖理由、计划、自评及复盘完整度；完整平仓周期按执行情况和结果分类，期初持仓不参与原始买入评价。</p></div>
+            <div><span className="tag">待开发</span><b>更长区间规则验证与完整账户风险</b><p>目前没有样本外长期绩效结论；账户净值与回撤仍需现金流水和逐日估值。</p></div>
           </div>
           <p className="progress-note">分数与条件仍是待验证规则，买卖由你人工决定。</p>
         </DialogContent>

@@ -106,12 +106,14 @@ export type Closed = {
   time: string;
   tag: string;
   discipline: string;
+  opening: boolean;
+  planRecorded: boolean;
 };
 export function calculate(trades: Trade[]) {
   if (new Set(trades.map((t) => t.id)).size !== trades.length)
     throw new Error("成交记录ID重复");
   const positions: Record<string, Position> = {},
-    cycles: Record<string, { pnl: number; tag: string; discipline: string }> =
+    cycles: Record<string, { pnl: number; tag: string; discipline: string; opening: boolean; planRecorded: boolean }> =
       {},
     closed: Closed[] = [],
     fills: { id: string; time: string; pnl: number }[] = [];
@@ -139,6 +141,8 @@ export function calculate(trades: Trade[]) {
           pnl: 0,
           tag: t.tag || "未分类",
           discipline: t.discipline,
+          opening: t.side === "opening",
+          planRecorded: !!t.plan.trim(),
         };
       if (t.side === "opening" && p.qty > 0)
         throw new Error(t.name + " 已有持仓，期初持仓应早于后续交易");
@@ -166,6 +170,8 @@ export function calculate(trades: Trade[]) {
           time: t.time,
           tag: cycles[t.code].tag,
           discipline: cycles[t.code].discipline,
+          opening: cycles[t.code].opening,
+          planRecorded: cycles[t.code].planRecorded,
         });
         delete cycles[t.code];
       }

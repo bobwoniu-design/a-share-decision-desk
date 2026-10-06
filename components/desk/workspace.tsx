@@ -49,6 +49,7 @@ import {
 } from "@/components/ui/table";
 import { toast } from "sonner";
 import { useDesk } from "./provider";
+import { personalFeedback } from "@/lib/personal-feedback";
 import {
   calculate,
   dailySummary,
@@ -799,6 +800,7 @@ export function Reviews() {
   const form = drafts[date] || ledger.reviews[date] || fallback,
     s = dailySummary(ledger, date),
     saved = ledger.reviews[date];
+  const dailyPending=personalFeedback(ledger).pending.filter(item=>item.date===date);
   function change(key: keyof Review, value: string) {
     setDrafts((d) => ({
       ...d,
@@ -987,6 +989,7 @@ export function Reviews() {
                 <span>自评临时操作</span>
                 <b>{s.unplanned} 笔</b>
               </div>
+              {dailyPending.length>0&&<div className="execution-pending"><b>待核对记录</b>{dailyPending.map(item=><p key={item.id}>{item.name} · {item.issues.join("、")}</p>)}</div>}
             </div>
           </Panel>
           <Panel title="日末持仓检查">
@@ -1065,7 +1068,7 @@ export function Reviews() {
 }
 export function Stats() {
   const { ledger } = useDesk();
-  const result = calculate(ledger.trades),
+  const result = calculate(ledger.trades),feedback=personalFeedback(ledger),
     [group, setGroup] = useState("交易模式");
   const groups = new Map<string, typeof result.closed>();
   for (const c of result.closed) {
@@ -1220,6 +1223,14 @@ export function Stats() {
               小样本仅供回顾。交易模式取本轮首次买入标签，执行情况取首次买入自评。
             </p>
           </div>
+        </Panel>
+      </div>
+      <div className="execution-feedback">
+        <Panel title="个人执行反馈" extra={<span className="muted">基于真实记录 · 不以盈利代替决策质量</span>}>
+          <div className="execution-coverage"><span><b>{feedback.reasonRecorded}/{feedback.recordedTrades}</b><small>买卖理由已记录</small></span><span><b>{feedback.planRecorded}/{feedback.recordedTrades}</b><small>事前计划已记录</small></span><span><b>{feedback.disciplineRecorded}/{feedback.recordedTrades}</b><small>执行自评已记录</small></span><span><b>{feedback.confirmedReviews}/{feedback.tradingDays}</b><small>有成交日已确认复盘</small></span></div>
+          <div className="execution-buckets">{feedback.buckets.map(b=><div key={b.label}><b>{b.label}</b><span>{b.count} 个完整周期</span><span className={b.net>=0?"up":"down"}>{b.count?`¥${money(b.net)}`:"—"}</span><small>{b.count?`平均 ¥${money(b.average)} · 胜率 ${b.winRate?.toFixed(1)}%`:"暂无样本"}</small></div>)}</div>
+          <p className="execution-note">{feedback.sampleNote} 已平仓期初持仓 {feedback.excludedOpeningCycles} 个周期未纳入执行评价，因为原始买入计划未知。分类使用首次买入的计划文字和执行自评；盈亏按完整平仓周期、包含成交费用。</p>
+          {feedback.pending.length>0&&<details className="history-details"><summary>待补充的交易依据 · {feedback.pending.length} 笔（显示最近12笔）</summary><div className="execution-pending">{feedback.pending.slice(0,12).map(item=><p key={item.id}>{item.date} · {item.name}（{item.code}）：{item.issues.join("、")}</p>)}</div></details>}
         </Panel>
       </div>
       <div style={{ marginTop: 16 }}>
