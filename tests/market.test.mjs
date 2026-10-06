@@ -20,3 +20,25 @@ test("minutes use yuan/share without conversion and reject wrong date or symbol"
  assert.throws(()=>minuteRows([r],"000001.SZ","2026-09-30"));assert.throws(()=>minuteRows([r],"600000.SH","2025-09-30"));assert.throws(()=>minuteRows([r,r],"600000.SH","2026-09-30"));
  assert.equal(validDate("2026-02-30"),false);assert.equal(validDate("2026-09-30"),true);
 });
+
+import {tradingDates,dailyHistory} from "../lib/market-data.ts";
+test("history calendar excludes closures and future rows and counts trading days",()=>{
+ const rows=[{cal_date:"20260925",is_open:1},{cal_date:"20260926",is_open:0},{cal_date:"20260928",is_open:1},{cal_date:"20260929",is_open:1},{cal_date:"20260930",is_open:1},{cal_date:"20261008",is_open:1}];
+ assert.deepEqual(tradingDates(rows,"2026-09-30",3),["2026-09-28","2026-09-29","2026-09-30"]);
+});
+const code="600000.SH",dates=Array.from({length:25},(_,i)=>`2026-09-${String(i+1).padStart(2,"0")}`);
+const daily=dates.map((d,i)=>({ts_code:code,trade_date:d.replaceAll("-",""),close:i<10?20:10,pre_close:i<10?20:10,pct_chg:0,amount:100000}));
+const factors=daily.map((r,i)=>({ts_code:code,trade_date:r.trade_date,adj_factor:i<10?1:2}));
+test("adjustment prevents a split from creating a false return or moving-average discontinuity",()=>{
+ const h=dailyHistory(daily,factors,code,dates);
+ assert.equal(h.return20,0);assert.equal(h.return5,0);assert.ok(h.points.every(p=>p.adjustedClose===10));assert.equal(h.points.at(-1).ma20,10);assert.equal(h.points[0].close,20);assert.equal(h.points[0].preClose,20);assert.equal(h.points[0].amountYi,1);
+});
+test("missing adjustment or interval endpoint does not produce a fabricated interval return",()=>{
+ const raw=dailyHistory(daily,factors.slice(1),code,dates);assert.equal(raw.adjusted,false);assert.equal(raw.return20,null);assert.equal(raw.points.at(-1).ma20,null);
+ const missing=dailyHistory(daily.slice(0,-1),factors,code,dates);assert.equal(missing.return5,null);assert.deepEqual(missing.missingDates,[dates.at(-1)]);
+});
+test("daily history rejects wrong symbols, extra dates, and duplicate rows",()=>{
+ assert.throws(()=>dailyHistory([...daily,daily[0]],factors,code,dates));
+ assert.throws(()=>dailyHistory(daily,factors,"000001.SZ",dates));
+ assert.throws(()=>dailyHistory(daily,factors,code,dates.slice(1)));
+});

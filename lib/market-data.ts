@@ -49,3 +49,33 @@ export type MarketSnapshot = {
   sectors:{name:string;count:number}[]; candidates:Candidate[];
   warnings:string[]; sources:{api:string;rows:number;fetchedAt:string}[];
 };
+
+export type DailyPoint = {
+  date:string; close:number; preClose:number; adjustedClose:number|null; ma5:number|null; ma20:number|null; pct:number; amountYi:number;
+};
+export type DailyHistory = {
+  code:string; date:string; requestedDays:number; dates:string[]; points:DailyPoint[]; missingDates:string[];
+  adjusted:boolean; return5:number|null; return20:number|null; warnings:string[]; fetchedAt:string;
+};
+export function tradingDates(rows:Row[],end:string,count:number){
+  return [...new Set(rows.filter(r=>Number(r.is_open)===1).map(r=>String(r.cal_date)))].filter(d=>/^\d{8}$/.test(d)&&d<=end.replaceAll("-","")).sort().slice(-count).map(d=>`${d.slice(0,4)}-${d.slice(4,6)}-${d.slice(6)}`);
+}
+export function dailyHistory(rows:Row[],factors:Row[],code:string,dates:string[]):Omit<DailyHistory,"fetchedAt"|"warnings">{
+  const wanted=new Set(dates.map(d=>d.replaceAll("-",""))),seen=new Set<string>();
+  const data=rows.map(r=>{
+    const date=String(r.trade_date),close=numeric(r.close),preClose=numeric(r.pre_close),pct=numeric(r.pct_chg),amount=numeric(r.amount);
+    if(r.ts_code!==code||!wanted.has(date)||seen.has(date)||close===null||close<=0||preClose===null||preClose<=0||pct===null||amount===null||amount<0)throw new Error("日线时间序列校验失败");
+    seen.add(date);return {date:`${date.slice(0,4)}-${date.slice(4,6)}-${date.slice(6)}`,close,preClose,pct,amountYi:amount/100000};
+  }).sort((a,b)=>a.date.localeCompare(b.date));
+  const factorMap=new Map<string,number>();
+  for(const r of factors){const f=numeric(r.adj_factor),d=String(r.trade_date);if(r.ts_code!==code||f===null||f<=0||factorMap.has(d))throw new Error("复权因子校验失败");factorMap.set(d,f);}
+  const adjusted=data.length>0&&data.every(r=>factorMap.has(r.date.replaceAll("-","")));
+  const base=adjusted?factorMap.get(data.at(-1)!.date.replaceAll("-",""))!:null;
+  const values=data.map(r=>base?r.close*factorMap.get(r.date.replaceAll("-",""))!/base:null);
+  const points=data.map((r,i)=>({...r,adjustedClose:values[i],ma5:adjusted&&i>=4?values.slice(i-4,i+1).reduce<number>((a,v)=>a+v!,0)/5:null,ma20:adjusted&&i>=19?values.slice(i-19,i+1).reduce<number>((a,v)=>a+v!,0)/20:null}));
+  const byDate=new Map(points.map(p=>[p.date,p]));
+  const change=(n:number)=>{const last=byDate.get(dates.at(-1)!),previous=byDate.get(dates.at(-n-1)!);return last?.adjustedClose&&previous?.adjustedClose?(last.adjustedClose/previous.adjustedClose-1)*100:null;};
+  return {code,date:dates.at(-1)??"",requestedDays:dates.length,dates,points,missingDates:dates.filter(d=>!byDate.has(d)),adjusted,return5:change(5),return20:change(20)};
+}
+export type TimelinePoint = Pick<MarketSnapshot,"date"|"coverage"|"limits"|"premium"|"sectors"|"warnings">;
+export type MarketTimeline = {date:string;dates:string[];points:TimelinePoint[];failures:{date:string;error:string}[];fetchedAt:string};
