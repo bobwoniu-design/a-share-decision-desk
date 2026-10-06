@@ -109,7 +109,7 @@ export function DeskProvider({ children }: { children: ReactNode }) {
     ).modelContext;
     if (!context?.registerTool) return;
     const lifecycle = new AbortController();
-    Promise.resolve(
+    Promise.all([
       context.registerTool(
         {
           name: "read_trading_ledger",
@@ -137,7 +137,29 @@ export function DeskProvider({ children }: { children: ReactNode }) {
         },
         { signal: lifecycle.signal },
       ),
-    ).catch(() => {});
+      context.registerTool(
+        {
+          name: "read_theme_data_health",
+          title: "读取题材数据核验",
+          description: "读取指定交易日的东财概念目录与历史成分覆盖检查；不会修改记录，也不会返回数据源密钥。",
+          inputSchema: {
+            type: "object",
+            properties: { date: { type: "string", description: "交易日，格式 YYYY-MM-DD" } },
+            required: ["date"],
+            additionalProperties: false,
+          },
+          annotations: { readOnlyHint: true, untrustedContentHint: true },
+          execute: async (input: { date: string }) => {
+            if (!/^\d{4}-\d{2}-\d{2}$/.test(input?.date ?? "")) throw new Error("交易日期无效");
+            const response = await fetch(`/api/market/themes/health?date=${input.date}`, { cache: "no-store" });
+            const data = await response.json() as { error?: string };
+            if (!response.ok) throw new Error(data.error ?? "题材数据核验失败");
+            return data;
+          },
+        },
+        { signal: lifecycle.signal },
+      ),
+    ]).catch(() => {});
     return () => lifecycle.abort();
   }, []);
   return (
