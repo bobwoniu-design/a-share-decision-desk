@@ -26,3 +26,11 @@ export const audit = sqliteTable(
   },
   (t) => [primaryKey({ columns: [t.owner, t.revision] })],
 );
+export const marketObservations = sqliteTable("market_observations",{
+  date:text("date").notNull(),
+  time:text("time").notNull(),
+  score:integer("score"),
+  phase:text("phase").notNull(),
+  reason:text("reason").notNull(),
+  capturedAt:text("captured_at").notNull(),
+},(t)=>[primaryKey({columns:[t.date,t.time]})]);

@@ -5,8 +5,9 @@ import {buildDecision,type CoreStock,type DecisionDay,type DecisionOverview} fro
 import {chinaNow,minuteFresh,type PeerSeries} from "./minute-engine";
 import {themeOverview} from "./theme-data";
 import {auditThemeRows} from "./theme-quality";
+import {boardEvidence} from "./board-evidence";
 
-const limitFields="ts_code,trade_date,name,industry,limit,limit_times,close,pct_chg";
+const limitFields="ts_code,trade_date,name,industry,limit,limit_times,close,pct_chg,amount,fd_amount,first_time,last_time,open_times";
 const jobs=new Map<string,Promise<{overview:DecisionOverview;days:DecisionDay[]}>>();
 const memory=new Map<string,{until:number;value:{overview:DecisionOverview;days:DecisionDay[]}}>();
 async function basicRows(warnings:string[]){
@@ -14,12 +15,18 @@ async function basicRows(warnings:string[]){
   for(const s of ["D","P"]){try{rows.push(...(await tushare("stock_basic",{list_status:s},fields)).rows);}catch(e){warnings.push(e instanceof Error?e.message:"历史股票列表缺失");}}
   return rows;
 }
-async function closeDay(date:string,basic:Row[],warnings:string[]):Promise<DecisionDay>{
+async function closeDay(date:string,basic:Row[],warnings:string[],boardCheck=false):Promise<DecisionDay>{
   const d=date.replaceAll("-",""),packet=await tushare("daily",{trade_date:d},"ts_code,trade_date,close,pre_close,pct_chg,amount");
   if(!packet.rows.length)throw new MarketError(`${date} 日线缺失，不能跨过缺失日计算持续性`);
   const prices=dailyRows(packet.rows,date);let limits:Row[]|null=null;
   try{limits=(await tushare("limit_list_d",{trade_date:d},limitFields,2500)).rows;if(limits.some(r=>r.trade_date!==d))throw new Error("涨跌停日期不一致");}catch(e){limits=null;warnings.push(`${date}：${e instanceof Error?e.message:"涨跌停数据缺失"}`);}
-  return {date,prices,limits,groups:sectorGroups(prices,basic,limits,date)};
+  let board:ReturnType<typeof boardEvidence>|null=null;
+  if(limits&&boardCheck){
+    const optional=async(api:string,fields:string)=>{try{return (await tushare(api,{trade_date:d},fields,2000)).rows;}catch(e){warnings.push(`${date} ${api}：${e instanceof Error?e.message:"不可用"}`);return null;}};
+    const [steps,sectors]=await Promise.all([optional("limit_step","ts_code,trade_date,name,nums"),optional("limit_cpt_list","ts_code,trade_date,name,rank,days,up_stat,cons_nums,up_nums,pct_chg")]);
+    try{board=boardEvidence(date,limits,steps,sectors);warnings.push(...board.warnings.map(w=>`${date}：${w}`));}catch(e){warnings.push(`${date} 打板核验：${e instanceof Error?e.message:"异常"}`);}
+  }
+  return {date,prices,limits,board,groups:sectorGroups(prices,basic,limits,date)};
 }
 export async function realtimeDay(date:string,basic:Row[],previous:DecisionDay,warnings:string[]):Promise<DecisionDay>{
   const now=chinaNow();if(date!==now.date)throw new MarketError("实时模式只能读取北京时间今天，历史日期请使用回放");
@@ -45,14 +52,16 @@ export async function realtimeDay(date:string,basic:Row[],previous:DecisionDay,w
   warnings.push("实时封板/炸板由最新价、日内高点和当日涨跌停价估算；不是盘后官方名单。行业归属为当前分类。");
   return {date,prices,limits,groups:sectorGroups(prices,basic,limits,date),partial:true,asOf:`${date} ${asOf}`};
 }
-export async function decisionData(date:string,mode:"close"|"live"="close"){
-  const key=`${date}:${mode}`,cached=memory.get(key);if(cached&&cached.until>Date.now())return cached.value;
+export async function decisionData(date:string,mode:"close"|"live"="close",count=20){
+  if(!Number.isInteger(count)||count<20||count>90)throw new MarketError("市场历史窗口超出允许范围");
+  const key=`${date}:${mode}:${count}`,cached=memory.get(key);if(cached&&cached.until>Date.now())return cached.value;
   if(jobs.has(key))return jobs.get(key)!;
   const job=(async()=>{
-    const warnings:string[]=[],{dates}=await marketDates(date,20);
+    const warnings:string[]=[],{dates}=await marketDates(date,count);
     if(dates.at(-1)!==date)throw new MarketError(`${date} 不是交易日，未替换为其他日期`);
     const basic=await basicRows(warnings),wanted=mode==="live"?dates.slice(0,-1):dates,days:DecisionDay[]=[];
-    for(let i=0;i<wanted.length;i+=2){days.push(...await Promise.all(wanted.slice(i,i+2).map(d=>closeDay(d,basic,warnings))));}
+    const batchSize=count>20?6:2;
+    for(let i=0;i<wanted.length;i+=batchSize){days.push(...await Promise.all(wanted.slice(i,i+batchSize).map((d,j)=>closeDay(d,basic,warnings,count===20&&i+j>=wanted.length-5))));}
     if(mode==="live")days.push(await realtimeDay(date,basic,days.at(-1)!,warnings));
     warnings.push("当前使用股票行业分类识别主线代理，未覆盖概念题材；历史行业变更未还原。分数为可解释规则分，不是概率或已验证收益。");
     const overview=buildDecision(days,[...new Set(warnings)]),value={overview,days};

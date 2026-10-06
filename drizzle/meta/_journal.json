@@ -15,6 +15,13 @@
       "when": 1791252837235,
       "tag": "0001_sweet_scarlet_witch",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1791303184408,
+      "tag": "0002_huge_whirlwind",
+      "breakpoints": true
     }
   ]
 }

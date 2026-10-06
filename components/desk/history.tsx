@@ -12,6 +12,7 @@ import { SectorBrowser } from "./sector-browser";
 import { ThemeBrowser } from "./theme-browser";
 import { FunnelBrowser } from "./funnel-browser";
 import { ValidationPanel } from "./validation-panel";
+import {MarketValidation} from "./market-validation";
 import { type MarketSnapshot } from "@/lib/market-data";
 const percent=(n:number|null|undefined)=>n==null?"—":`${n>=0?"+":""}${n.toFixed(2)}%`;
 export type MarketNavigation={mode:"close"|"live";date:string;code:string;themeCode?:string;selectedStock?:HistoryStock};
@@ -46,6 +47,7 @@ export function HistoricalMarket({view,navigation,onNavigationChange,onSelectSto
       <DecisionHeader {...decision} showIndustry={dimension==="industry"} onSelect={s=>{update({code:s.code,selectedStock:s});onSelectStock();}} onSector={name=>{setSectorFocus(current=>({name,serial:current.serial+1}));const c=decision.data?.sectors.find(s=>s.name===name)?.cores[0];if(c)update({code:c.code,selectedStock:c});}}/>
       {mode==="close"&&<div className="metric-grid">{cards.map(([name,value,note])=><div className="metric" key={name}><label>{name}</label><strong>{value}</strong><div className="metric-bottom"><span>{note}</span></div></div>)}</div>}
       <details className="market-history-fold" onToggle={e=>setHistoryOpen(e.currentTarget.open)}><summary>市场情绪历史 · 7 / 20 个交易日对比</summary>{historyOpen&&<MarketHistory date={date} onDate={d=>update({mode:"close",date:d,selectedStock:undefined})}/>}</details>
+      {mode==="close"&&<MarketValidation date={date}/>}
       <div className="market-dimension-tabs" aria-label="市场总览维度"><button aria-pressed={dimension==="theme"} className={dimension==="theme"?"active":""} onClick={()=>setDimension("theme")}>题材主线</button><button aria-pressed={dimension==="industry"} className={dimension==="industry"?"active":""} onClick={()=>setDimension("industry")}>行业板块</button><span>两个来源独立排名，分数不跨维度比较</span></div>
       {dimension==="theme"?<ThemeBrowser date={date} mode={mode} onSelect={(s,themeCode)=>{update({code:s.code,themeCode,selectedStock:{code:s.code,name:s.name,preClose:s.quote?.preClose}});onSelectStock();}}/>:<SectorBrowser date={date} code={code} mode={mode} scored={decision.data?.sectors} focus={sectorFocus} onSelect={s=>{update({code:s.code,themeCode:undefined,selectedStock:{code:s.code,name:s.name,preClose:s.quote?.preClose}});onSelectStock();}}/>}
     </>}

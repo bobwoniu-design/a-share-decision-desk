@@ -4,6 +4,8 @@ import {minuteEngine,sectorMinuteEngine,tradingMinute,minuteFresh} from '../lib/
 import {buildDecision,weightedScore} from '../lib/decision-engine.ts';
 import {sectorGroups} from '../lib/sectors.ts';
 import {evaluateSignalDay} from '../lib/signal-metrics.ts';
+import {boardEvidence} from '../lib/board-evidence.ts';
+import {marketValidation} from '../lib/market-validation.ts';
 function sample(){let price=10;return Array.from({length:100},(_,i)=>{const prev=price;price=i<25?10+i*.02:i<35?10.48-(i-24)*.06:i<45?9.88+(i-35)*.006:i<65?9.94+(i-45)*.04:i<75?10.74+(i-65)*.12:i<85?11.94+(i-75)*.2:13.94-(i-85)*.35;const vol=i<25?1000:i<35?3000:i<45?600:i<65?4000: i<85?10000+i*150:20000;return {time:`${String(Math.floor((571+i)/60)).padStart(2,'0')}:${String((571+i)%60).padStart(2,'0')}`,open:prev,high:Math.max(prev,price)+.001,low:Math.min(prev,price)-.001,close:price,vol,amount:(prev+price)/2*vol};});}
 const bars=sample(),sector=bars.map(b=>({time:b.time,phase:'转强',strong:true,weak:false,reason:'validated test cohort',coverage:6,total:6}));
 const context={sector,theme:sector,mainlineCore:true,themeAllowed:true,marketAllowed:true,preClose:10,floatShares:1e7};
@@ -38,6 +40,24 @@ test('industry mainline requires independent breadth, persistence and verified l
 });
 test('future daily snapshots cannot rewrite earlier market or sector history',()=>{const d=days(),early=buildDecision(d.slice(0,10)),full=buildDecision(d);assert.deepEqual(early.market.history,full.market.history.slice(0,10));for(const s of early.sectors)assert.deepEqual(s.history,full.sectors.find(x=>x.name===s.name).history.slice(0,10));assert.throws(()=>buildDecision([d[1],d[0]]));});
 test('intraday turnover does not compare a partial day against full daily amounts',()=>{const d=days();d[d.length-1].partial=true;const r=buildDecision(d);assert.equal(r.market.factors.find(f=>f.name==='成交活跃').score,null);assert.equal(r.mode,'live');assert.ok(r.sectors[0].factors.find(f=>f.name==='成交活跃').detail.includes('盘中'));});
+test('board evidence reconciles official limit-up ladder and retains a separate sector taxonomy',()=>{
+  const l=[{ts_code:'600001.SH',trade_date:'20260930',limit:'U',limit_times:3,open_times:0,fd_amount:100,first_time:'093000'},
+    {ts_code:'600002.SH',trade_date:'20260930',limit:'U',limit_times:1,open_times:2,fd_amount:20,first_time:'094000'}];
+  const s=[{ts_code:'600001.SH',trade_date:'20260930',name:'A',nums:3}];
+  const c=[{ts_code:'885001.TI',trade_date:'20260930',name:'某板块',rank:1,up_nums:3,cons_nums:1,days:2,pct_chg:4}];
+  const result=boardEvidence('2026-09-30',l,s,c);
+  assert.deepEqual(result.discrepancies,{missingInLadder:0,extraInLadder:0,heightMismatch:0});
+  assert.equal(result.seal.neverOpened,1);assert.equal(result.sectors[0].code,'885001.TI');
+  assert.throws(()=>boardEvidence('2026-09-29',l,s,c));
+  assert.equal(boardEvidence('2026-09-30',l,null,null).warnings.length,2);
+});
+test('market validation uses only next day outcomes and excludes the terminal day',()=>{
+  const d=days(),o=buildDecision(d);o.market.history=o.market.history.map(h=>({...h,score:50}));const r=marketValidation(d,o,3);
+  assert.equal(r.eligible,9);assert.equal(r.observations.at(-1).date,d.at(-2).date);
+  const changed=structuredClone(d);changed.at(-1).prices.forEach(p=>p.pct=-10);
+  const newer=marketValidation(changed,o,3);
+  assert.deepEqual(newer.observations.slice(0,-1),r.observations.slice(0,-1));
+});
 
 test('official zero-volume minutes preserve price continuity but never generate a positive signal themselves',()=>{const all=bars.map((b,i)=>i===68||i===69?{...b,vol:0,amount:0}:b);const r=minuteEngine(all,context);assert.ok(r.frames[69].above>=3);assert.ok(!/^第[一二三]笔/.test(r.frames[69].signal));assert.equal(r.frames[69].quality,true);});
 test('an uninterrupted one-price limit-up is consistency, not a fabricated disagreement entry',()=>{const flat=bars.slice(0,40).map(b=>({...b,open:11,high:11,low:11,close:11,vol:1000,amount:11000}));const r=minuteEngine(flat,{...context,upLimit:11});assert.equal(r.current.phase,'一致');assert.ok(!r.frames.some(f=>/^第[一二三]笔/.test(f.signal)));});
