@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { RefreshCw, NotebookPen } from "lucide-react";
+import { RefreshCw } from "lucide-react";
 import { Panel } from "./workspace";
 import { useDesk } from "./provider";
 import {DecisionHeader, MinuteDecision, CoreProfile, useDecision} from "./decision";
@@ -12,11 +12,11 @@ import { SectorBrowser } from "./sector-browser";
 import { type MarketSnapshot } from "@/lib/market-data";
 const percent=(n:number|null|undefined)=>n==null?"—":`${n>=0?"+":""}${n.toFixed(2)}%`;
 export type MarketNavigation={mode:"close"|"live";date:string;code:string;selectedStock?:HistoryStock};
-export function HistoricalMarket({view,navigation,onNavigationChange,onSelectStock,onRecordEvent,onReview}:{view:"overview"|"selection";navigation:MarketNavigation;onNavigationChange:(value:MarketNavigation|((current:MarketNavigation)=>MarketNavigation))=>void;onSelectStock:()=>void;onRecordEvent:()=>void;onReview:()=>void}){
+export function HistoricalMarket({view,navigation,onNavigationChange,onSelectStock}:{view:"overview"|"selection";navigation:MarketNavigation;onNavigationChange:(value:MarketNavigation|((current:MarketNavigation)=>MarketNavigation))=>void;onSelectStock:()=>void}){
   const {ledger}=useDesk();
   const {mode,date,code,selectedStock}=navigation;
   const update=(change:Partial<MarketNavigation>)=>onNavigationChange(current=>({...current,...change}));
-  const [sectorFocus,setSectorFocus]=useState(""),[historyOpen,setHistoryOpen]=useState(false);
+  const [sectorFocus,setSectorFocus]=useState({name:"",serial:0}),[historyOpen,setHistoryOpen]=useState(false);
   const [snapshot,setSnapshot]=useState<MarketSnapshot|null>(null),[busy,setBusy]=useState(true),[error,setError]=useState(""),[retry,setRetry]=useState(0),[query,setQuery]=useState("");
   const decision=useDecision<DecisionOverview>(`/api/market/decision?date=${date}&mode=${mode}`,mode==="live");
   useEffect(()=>{
@@ -36,16 +36,15 @@ export function HistoricalMarket({view,navigation,onNavigationChange,onSelectSto
     ["昨日涨停溢价",percent(snapshot?.premium?.value),snapshot?.premium?`收盘等权 · ${snapshot.premium.matched}/${snapshot.premium.total}只有行情`:"前一交易日涨停样本 · 待数据"],
     ["沪深A股成交额",stats?`${stats.amountYi.toLocaleString("zh-CN",{maximumFractionDigits:1})} 亿`:"—","daily股票成交额合计 · 不含北交所"]
   ];
-  const events=ledger.events.filter(e=>e.date===date).slice().reverse();
   return <div className="compact-desk">
     <div className="history-bar"><div><span className="mode-badge">TUSHARE · {mode==="live"?"盘中监测":"历史复盘"}</span><b>{date}</b><span className="muted">{busy?"正在加载…":snapshot?`${snapshot.coverage.total} 只日线已载入`:decision.data?`${decision.data.asOf} 更新`:"数据未载入"}</span></div><div><button className={`button ${mode==="live"?"primary":""}`} onClick={()=>update({mode:"live",date:chinaNow().date,selectedStock:undefined})}>今日盘中</button><button className={`button ${mode==="close"?"primary":""}`} onClick={()=>update({mode:"close",selectedStock:undefined})}>历史复盘</button><label htmlFor="market-date">交易日期</label><input id="market-date" type="date" value={date} onInput={e=>{if(e.currentTarget.value)update({mode:"close",date:e.currentTarget.value,selectedStock:undefined});}}/><button className="button" disabled={busy} onClick={()=>{setRetry(v=>v+1);decision.retry();}}><RefreshCw size={14}/>重新读取</button></div></div>
     {error&&<div className="error-banner" role="alert">{error}</div>}
     {view==="overview"&&<>
-      <DecisionHeader {...decision} onSelect={s=>{update({code:s.code,selectedStock:s});onSelectStock();}} onSector={name=>{setSectorFocus(name);const c=decision.data?.sectors.find(s=>s.name===name)?.cores[0];if(c)update({code:c.code,selectedStock:c});}}/>
+      <DecisionHeader {...decision} onSelect={s=>{update({code:s.code,selectedStock:s});onSelectStock();}} onSector={name=>{setSectorFocus(current=>({name,serial:current.serial+1}));const c=decision.data?.sectors.find(s=>s.name===name)?.cores[0];if(c)update({code:c.code,selectedStock:c});}}/>
       {mode==="close"&&<div className="metric-grid">{cards.map(([name,value,note])=><div className="metric" key={name}><label>{name}</label><strong>{value}</strong><div className="metric-bottom"><span>{note}</span></div></div>)}</div>}
       <details className="market-history-fold" onToggle={e=>setHistoryOpen(e.currentTarget.open)}><summary>市场情绪历史 · 7 / 20 个交易日对比</summary>{historyOpen&&<MarketHistory date={date} onDate={d=>update({mode:"close",date:d,selectedStock:undefined})}/>}</details>
       <div className="overview-notice"><b>题材维度接入中</b><span>东财概念历史数据已通过小样本核验；当前排名仍采用行业分类，不能视为题材主线。题材评分与阶段将在下一任务接入。</span></div>
-      <div className="market-grid overview-grid"><div className="column sector-column"><SectorBrowser date={date} code={code} mode={mode} scored={decision.data?.sectors} focus={sectorFocus} onSelect={s=>{update({code:s.code,selectedStock:{code:s.code,name:s.name,preClose:s.quote?.preClose}});onSelectStock();}}/></div><div className="column"><Panel title="当日新闻与事件" extra={<button className="text-link" onClick={onRecordEvent}>＋ 记录事件</button>}><div className="events">{events.map(e=><article key={e.id}><div><time>{e.date}</time><span className="tag">{e.verified?"已核实":"待核实"}</span></div><h3>{e.title}</h3><p>{e.note}</p>{e.url&&<a className="event-link" href={e.url} target="_blank" rel="noreferrer">查看来源</a>}</article>)}{!events.length&&<p className="history-small-empty">这一天尚未记录事件。新闻尚未自动接入。</p>}</div></Panel><button className="summary-card" onClick={onReview}><NotebookPen/><div><h3>每日复盘</h3><p>记录人工判断与交易执行</p></div></button></div></div>
+      <SectorBrowser date={date} code={code} mode={mode} scored={decision.data?.sectors} focus={sectorFocus} onSelect={s=>{update({code:s.code,selectedStock:{code:s.code,name:s.name,preClose:s.quote?.preClose}});onSelectStock();}}/>
     </>}
     {view==="selection"&&<div className="market-grid selection-grid">
       <div className="column"><Panel title="系统选股池" extra={<span className="muted">{mode==="live"?"盘中快照":"收盘观察"}</span>}><div className="history-stock-list">{(mode==="live"?(decision.data?.cores??[]):(snapshot?.candidates??[])).map(s=><button key={s.code} className={`history-stock ${s.code===code?"selected":""}`} onClick={()=>update({code:s.code,selectedStock:s})}><span><b>{s.name}</b><small>{s.code} · {"label" in s?s.label:"核心候选"}</small></span>{"pct" in s&&<span className={s.pct<0?"down":"up"}>{percent(s.pct)}</span>}</button>)}{!busy&&!decision.busy&&!(mode==="live"?decision.data?.cores.length:snapshot?.candidates.length)&&<p className="history-small-empty">当前没有满足筛选条件的候选。</p>}</div></Panel><Panel title="持仓 / 自选" extra={<span className="muted">个人记录</span>}><div className="history-personal">{personal.map(p=><button key={p.code} className={`tag ${p.code===code?"active":""}`} onClick={()=>update({code:p.code,selectedStock:undefined})}>{p.name}</button>)}{!personal.length&&<span className="muted">录入期初持仓或自选后将在这里显示。</span>}<form onSubmit={e=>{e.preventDefault();const q=query.trim().toUpperCase();if(/^\d{6}\.(SH|SZ|BJ)$/.test(q))update({code:q,selectedStock:undefined});}}><input aria-label="查询证券代码" placeholder="例如 600418.SH" pattern="[0-9]{6}\.(SH|SZ|BJ)" required value={query} onChange={e=>setQuery(e.target.value.toUpperCase())}/><button className="button">查看行情</button></form></div></Panel></div>

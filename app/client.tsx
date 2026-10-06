@@ -27,7 +27,6 @@ import {
   Stats,
   Positions,
   TradeDialog,
-  EventDialog,
   SettingsDialog,
 } from "@/components/desk/workspace";
 import { RealMarketDialog } from "@/components/desk/market";
@@ -43,7 +42,6 @@ export default function ClientDesk() {
 function Home() {
   const [tab, setTab] = useState("market"),
     [marketNavigation, setMarketNavigation] = useState<MarketNavigation>({mode:"close",date:DEFAULT_MARKET_DATE,code:""}),
-    [eventOpen, setEventOpen] = useState(false),
     [progressOpen, setProgressOpen] = useState(false),
     [settingsOpen, setSettingsOpen] = useState(false),
     [marketOpen, setMarketOpen] = useState(false);
@@ -152,8 +150,6 @@ function Home() {
           navigation={marketNavigation}
           onNavigationChange={setMarketNavigation}
           onSelectStock={()=>changeTab("selection")}
-          onRecordEvent={() => setEventOpen(true)}
-          onReview={() => changeTab("review")}
         />}
         <TabsContent value="trades">
           <Positions />
@@ -175,10 +171,9 @@ function Home() {
           <ShieldCheck size={13} /> 人工决策 · 无自动委托
         </span>
         <span>市场总览：环境与板块　/　选股与自选：个股分析</span>
-        <span>短线决策台 · v0.6 开发中</span>
+        <span>短线决策台 · v0.7 开发中</span>
       </footer>
       <TradeDialog />
-      <EventDialog open={eventOpen} setOpen={setEventOpen} />
       <SettingsDialog open={settingsOpen} setOpen={setSettingsOpen} />
       <RealMarketDialog open={marketOpen} setOpen={setMarketOpen} />
       <Dialog open={progressOpen} onOpenChange={setProgressOpen}>
@@ -186,7 +181,8 @@ function Home() {
           <DialogHeader><DialogTitle>开发进度</DialogTitle><DialogDescription>按已上线、开发中和待开发展示；每次发布后更新。</DialogDescription></DialogHeader>
           <div className="progress-items">
             <div><span className="tag">已上线</span><b>基础看盘与交易记录 · v0.5</b><p>真实日线和分钟数据、行业评分、个股分钟阶段、持仓、交易记录、复盘与统计。</p></div>
-            <div><span className="tag">本次发布</span><b>五页分工 · v0.6</b><p>市场总览、选股与自选、持仓与交易、每日复盘、交易统计。市场和个股分开展示，切页保留日期与股票。</p></div>
+            <div><span className="tag">已上线</span><b>五页分工 · v0.6</b><p>市场总览、选股与自选、持仓与交易、每日复盘、交易统计。市场和个股分开展示，切页保留日期与股票。</p></div>
+            <div><span className="tag">本次发布</span><b>首页行业板块全景 · v0.7</b><p>新闻事件和每日复盘从首页移出；全部行业以卡片展示，可按定位筛选并点击查看梯队与成员详情。</p></div>
             <div><span className="tag">已核验</span><b>题材历史数据源</b><p>东财概念日表及历史成分可读取；9 月 30 日有 504 个概念。当前仍按行业展示排名。</p></div>
             <div><span className="tag">待开发</span><b>题材主线雷达与全景</b><p>按历史日期展示成员、强弱与证据；保留行业参考，避免把行业排名当成题材主线。</p></div>
             <div><span className="tag">待开发</span><b>跨日阶段、交易计划与复盘关联</b><p>建立题材跨日阶段、计划版本、成交现场记录和执行质量统计。</p></div>
