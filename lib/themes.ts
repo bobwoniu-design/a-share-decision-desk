@@ -67,7 +67,7 @@ export function scoreThemeDays(days:ThemeDay[]):ScoredTheme[]{
     const s=state.get(String(r.ts_code))!;
     const label=s.kind==="交易表现"?"交易表现":s.score===null?"待数据":s.phase==="转弱"||s.score<40?"退潮":s.score>=75&&s.topDays>=3&&s.return5!==null&&s.return5>0&&s.breadth!==null&&s.breadth>=50?"主线初筛":s.score>=65&&(s.pct??0)>0&&(s.return5??0)>0?"主线候选":"轮动";
     return {...s,rank:0,label};
-  }).sort((a,b)=>(b.score??-1)-(a.score??-1)||(b.pct??-Infinity)-(a.pct??-Infinity)||a.code.localeCompare(b.code));
+  }).sort((a,b)=>(a.kind===b.kind?0:a.kind==="题材"?-1:1)||(b.score??-1)-(a.score??-1)||(b.pct??-Infinity)-(a.pct??-Infinity)||a.code.localeCompare(b.code));
   scored.forEach((s,i)=>s.rank=i+1);
   return scored;
 }
