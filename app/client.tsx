@@ -58,7 +58,7 @@ function Home() {
     const onBack=()=>{const view=new URL(window.location.href).searchParams.get("view");setTab(["market","selection","trades","review","stats"].includes(view??"")?view!:"market");};
     window.addEventListener("popstate",onBack);return()=>window.removeEventListener("popstate",onBack);
   },[]);
-  useEffect(()=>{try{window.sessionStorage.setItem("decision-desk-market-view",JSON.stringify(marketNavigation));}catch{}},[marketNavigation]);
+  useEffect(()=>{try{window.sessionStorage.setItem("decision-desk-market-view",JSON.stringify({mode:marketNavigation.mode,date:marketNavigation.date,code:marketNavigation.code}));}catch{}},[marketNavigation]);
   const changeTab=(view:string)=>{setTab(view);const url=new URL(window.location.href);url.searchParams.set("view",view);window.history.pushState({view},"",url);};
   return (
     <Tabs value={tab} onValueChange={changeTab} className="app">
