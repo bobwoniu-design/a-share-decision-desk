@@ -17,6 +17,23 @@ test('VWAP and turnover use yuan, shares, and only the observed prefix',()=>{con
 test('missing score inputs remain unknown, never neutral zero or a probability',()=>{assert.equal(weightedScore([{name:'a',weight:60,score:90,detail:''},{name:'b',weight:40,score:null,detail:''}]),null);assert.equal(weightedScore([{name:'a',weight:80,score:90,detail:''},{name:'b',weight:20,score:null,detail:''}]),90);});
 function days(){const basic=Array.from({length:8},(_,i)=>({ts_code:`60000${i}.SH`,name:`成员${i}`,industry:i<4?'甲':'乙',list_date:'20200101'}));return Array.from({length:12},(_,i)=>{const date=`2026-09-${String(i+1).padStart(2,'0')}`,prices=basic.map((b,j)=>({code:b.ts_code,close:10,preClose:10,pct:j<4?4+i*.1:-2,amount:(j<4?2:1)*1e8*(1+i*.05)})),limits=basic.slice(0,2).map((b,j)=>({ts_code:b.ts_code,trade_date:date.replaceAll('-',''),limit:'U',limit_times:j+2}));return {date,prices,limits,groups:sectorGroups(prices,basic,limits,date)};});}
 test('full-market scoring ranks strength, includes previous-day deltas and reconciles promotion',()=>{const d=days(),r=buildDecision(d);assert.equal(r.sectors[0].name,'甲');assert.equal(r.market.promotion.value,100);assert.equal(r.market.promotion.total,2);assert.equal(r.market.promotion.advanced,2);assert.ok(r.sectors[0].score>r.sectors[1].score);assert.ok(r.sectors[0].delta!==null);assert.ok(r.sectors[0].factors.some(f=>f.name==='持续性'));assert.equal(r.market.history.length,12);});
+test('industry mainline requires independent breadth, persistence and verified ladder evidence',()=>{
+  const complete=buildDecision(days()).sectors.find(s=>s.name==='甲');
+  assert.equal(complete.qualification.status,'通过');
+  assert.equal(complete.label,'主线初筛');
+  const noLadder=days(),last=noLadder.at(-1),basic=last.groups.flatMap(g=>g.members.map(m=>({ts_code:m.code,name:m.name,industry:m.industry})));
+  last.limits=[];last.groups=sectorGroups(last.prices,basic,[],last.date);
+  const weak=buildDecision(noLadder).sectors.find(s=>s.name==='甲');
+  assert.ok(weak.score>=65);
+  assert.equal(weak.qualification.checks.at(-1).result,'未通过');
+  assert.notEqual(weak.label,'主线初筛');
+  last.limits=null;last.groups=sectorGroups(last.prices,basic,null,last.date);
+  const missing=buildDecision(noLadder).sectors.find(s=>s.name==='甲');
+  assert.equal(missing.qualification.checks.at(-1).result,'待核验');
+  assert.notEqual(missing.label,'主线初筛');
+  const live=days();live.at(-1).partial=true;
+  assert.equal(buildDecision(live).sectors.find(s=>s.name==='甲').qualification.checks.at(-1).result,'待核验');
+});
 test('future daily snapshots cannot rewrite earlier market or sector history',()=>{const d=days(),early=buildDecision(d.slice(0,10)),full=buildDecision(d);assert.deepEqual(early.market.history,full.market.history.slice(0,10));for(const s of early.sectors)assert.deepEqual(s.history,full.sectors.find(x=>x.name===s.name).history.slice(0,10));assert.throws(()=>buildDecision([d[1],d[0]]));});
 test('intraday turnover does not compare a partial day against full daily amounts',()=>{const d=days();d[d.length-1].partial=true;const r=buildDecision(d);assert.equal(r.market.factors.find(f=>f.name==='成交活跃').score,null);assert.equal(r.mode,'live');assert.ok(r.sectors[0].factors.find(f=>f.name==='成交活跃').detail.includes('盘中'));});
 

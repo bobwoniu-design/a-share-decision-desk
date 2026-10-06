@@ -171,7 +171,7 @@ function Home() {
           <ShieldCheck size={13} /> 人工决策 · 无自动委托
         </span>
         <span>市场总览：环境与板块　/　选股与自选：个股分析</span>
-        <span>短线决策台 · v0.9 开发中</span>
+        <span>短线决策台 · v0.9.1 开发中</span>
       </footer>
       <TradeDialog />
       <SettingsDialog open={settingsOpen} setOpen={setSettingsOpen} />
@@ -185,7 +185,8 @@ function Home() {
             <div><span className="tag">已上线</span><b>首页行业板块全景 · v0.7</b><p>新闻事件和每日复盘从首页移出；全部行业以卡片展示，可按定位筛选并点击查看梯队与成员详情。</p></div>
             <div><span className="tag">已核验</span><b>题材历史数据源</b><p>东财概念日表及历史成分可读取；题材和行业使用各自口径独立排名。</p></div>
             <div><span className="tag">已上线</span><b>题材全景 · v0.8</b><p>东财概念按历史日期独立评分和筛选；点开可查看当日真实成分、涨跌分布及梯队候选。</p></div>
-            <div><span className="tag">本次发布</span><b>主线资格独立核验 · v0.9</b><p>强度排名与主线资格分开；满足日线条件后，再核对历史成分的涨停梯队。逐项显示通过、未通过或待核验。</p></div>
+            <div><span className="tag">已上线</span><b>题材主线资格独立核验 · v0.9</b><p>题材强度排名与主线资格分开；满足日线条件后再核对历史成分的涨停梯队。</p></div>
+            <div><span className="tag">本次发布</span><b>行业主线资格独立核验 · v0.9.1</b><p>行业也分开显示强度和资格，逐项核对覆盖、强度、持续性、广度与梯队；资格未通过时不再当作分钟信号的主线条件。</p></div>
             <div><span className="tag">待开发</span><b>市场策略、角色与交易机会</b><p>下一批将分步连接市场状态、题材与个股角色，再形成可解释的候选和盘中条件。</p></div>
           </div>
           <p className="progress-note">分数与条件仍是待验证规则，买卖由你人工决定。</p>

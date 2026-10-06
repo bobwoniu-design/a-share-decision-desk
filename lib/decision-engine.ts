@@ -6,13 +6,35 @@ export type Price = {code:string;close:number;preClose:number;pct:number;amount:
 export type DecisionDay={date:string;prices:Price[];groups:SectorGroup[];limits:Row[]|null;partial?:boolean;asOf?:string};
 export type Factor={name:string;score:number|null;weight:number;detail:string};
 export type CoreStock={code:string;name:string;sector:string;score:number|null;delta:number|null;roles:string[];factors:Factor[];pct:number;close:number;preClose:number;height:number|null;amountYi:number;return5:number|null};
-export type ScoredSector={name:string;score:number|null;delta:number|null;rank:number;phase:Phase;label:string;factors:Factor[];history:{date:string;score:number|null;phase:Phase}[];cores:CoreStock[];coverage:number;total:number;averagePct:number|null;amountYi:number;topDays:number};
+export type IndustryCheck={name:string;result:"通过"|"未通过"|"待核验";detail:string};
+export type IndustryQualification={status:"通过"|"未通过"|"待核验";checks:IndustryCheck[]};
+export type ScoredSector={name:string;score:number|null;delta:number|null;rank:number;phase:Phase;label:string;qualification:IndustryQualification;factors:Factor[];history:{date:string;score:number|null;phase:Phase}[];cores:CoreStock[];coverage:number;total:number;averagePct:number|null;amountYi:number;topDays:number};
 export type MarketDecision={score:number|null;delta:number|null;cycle:string;previousCycle:string|null;phase:Phase;earning:string;risk:string;posture:string;factors:Factor[];promotion:{value:number|null;advanced:number;total:number};highPremium:{value:number|null;matched:number;total:number};history:{date:string;score:number|null;cycle:string;phase:Phase}[]};
 export type DecisionOverview={date:string;asOf:string;mode:"close"|"live";market:MarketDecision;sectors:ScoredSector[];cores:CoreStock[];warnings:string[];fetchedAt:string;version:string;dates:string[]};
 const clamp=(n:number)=>Math.max(0,Math.min(100,n));
 const norm=(n:number,min:number,max:number)=>clamp((n-min)/(max-min)*100);
 const mean=(v:number[])=>v.length?v.reduce((s,n)=>s+n,0)/v.length:0;
 const fmt=(v:number|null,n=1)=>v===null?"缺失":v.toFixed(n);
+const qualificationCheck=(name:string,passed:boolean|null,detail:string):IndustryCheck=>({name,result:passed===null?"待核验":passed?"通过":"未通过",detail});
+function industryQualification(g:SectorGroup,day:DecisionDay,topDays:number,complete:boolean,relativeRank:number|null,relativeTotal:number):IndustryQualification{
+  const highs=g.members.filter(m=>m.limit==="U").map(m=>m.height).filter((h):h is number=>h!==null&&Number.isInteger(h)&&h>=1);
+  const maxHeight=Math.max(0,...highs),tiers=new Set(highs).size;
+  const checks=[
+    qualificationCheck("行情覆盖",g.total?g.traded>=3&&g.traded/g.total>=.8:null,`有行情 ${g.traded}/${g.total}，要求至少3只且覆盖80%`),
+    qualificationCheck("当日相对强度",relativeRank===null||g.averagePct===null?null:g.averagePct>0&&relativeRank<=Math.ceil(relativeTotal*.2),`等权涨幅 ${fmt(g.averagePct,2)}% · 同源第${relativeRank??"—"}/${relativeTotal}，要求前20%且上涨`),
+    qualificationCheck("持续性",complete?topDays>=3:null,`前5日涨幅前十 ${complete?topDays:"缺失"}/5，要求至少3日`),
+    qualificationCheck("内部广度",g.traded?g.up/g.traded>=.55:null,`上涨 ${g.up}/${g.traded}，要求至少55%`),
+    qualificationCheck("涨停梯队",day.partial||g.limitUp===null?null:g.limitUp>=2&&maxHeight>=2&&tiers>=2,day.partial?"盘中封板为估算，收盘名单核实前不确认资格":g.limitUp===null?"官方涨停名单缺失":"涨停 "+g.limitUp+` 只 · 最高 ${maxHeight} 板 · ${tiers} 层，要求至少2只、最高2板且形成2层`)
+  ];
+  return {status:checks.some(c=>c.result==="未通过")?"未通过":checks.every(c=>c.result==="通过")?"通过":"待核验",checks};
+}
+function industryLabel(score:number|null,phase:Phase,qualification:IndustryQualification,g:SectorGroup){
+  if(score===null)return "待数据";
+  if(phase==="转弱"||score<40)return "退潮";
+  if(qualification.status==="通过")return "主线初筛";
+  if(qualification.status==="待核验")return "待梯队核验";
+  return qualification.checks.filter(c=>c.result==="通过").length>=3&&(g.averagePct??0)>0?"主线候选":"轮动";
+}
 export function weightedScore(factors:Factor[],minimum=.8){const known=factors.filter(f=>f.score!==null&&Number.isFinite(f.score)),weight=known.reduce((s,f)=>s+f.weight,0),total=factors.reduce((s,f)=>s+f.weight,0);return !total||weight/total<minimum?null:Math.round(known.reduce((s,f)=>s+clamp(f.score!)*f.weight,0)/weight);}
 function phaseFor(score:number|null,prev:number|null,prior:Phase):Phase{
   if(score===null)return "待数据";const delta=prev===null?0:score-prev;
@@ -73,7 +95,7 @@ function sectorFactors(g:SectorGroup,day:DecisionDay,past:DecisionDay[],topHisto
     {name:"成交活跃",weight:20,score:shareRatio===null?null:day.partial?norm(shareRatio,.6,1.8):ratio===null?null:.5*norm(ratio,.6,1.8)+.5*norm(shareRatio,.6,1.8),detail:`全市场成交占比 ${(share*100).toFixed(2)}% · 占比较前5日 ${fmt(shareRatio,2)}倍${day.partial?"（盘中）":` · 均额${fmt(ratio,2)}倍`}`},
     {name:"梯队",weight:15,score:g.limitUp===null?null:.45*norm(Math.max(0,...leaderHigh),0,5)+.3*norm(tiers.size,0,3)+.25*norm(g.limitUp/Math.max(1,g.traded)*100,0,8),detail:`最高${Math.max(0,...leaderHigh)}板 · ${tiers.size}层 · ${g.limitUp??"—"}涨停`},
     {name:"抗分歧",weight:15,score:retention===null&&seal===null?null:retention===null?seal:seal===null?retention:retention*.6+seal*.4,detail:`昨日梯队非负 ${fmt(retention)}% · 封板率 ${fmt(seal)}%`}
-  ];return {factors,topDays};
+  ];return {factors,topDays,complete:histories.length===5&&histories.every(h=>h.g)&&topHistory.length>=5};
 }
 function coreScores(g:SectorGroup,history:Map<string,Price>[],sectorScore:number|null,previous:CoreStock[]):CoreStock[]{
   const eligible=g.members.filter(m=>m.quote&&!/^(\*?ST|S\*?ST|退)/i.test(m.name));
@@ -112,14 +134,16 @@ export function buildDecision(days:DecisionDay[],warnings:string[]=[]):DecisionO
     marketHistory.push({date:day.date,score,cycle,phase});
     market={score,delta,cycle,previousCycle:lastMarket?.cycle??null,phase,earning:score===null?"待数据":score>=65?"偏强":score>=45?"分化":"偏弱",risk,posture:score===null?"数据不足，暂停条件提示":score<45||risk==="高"?"防守观察，优先核查持仓失效条件":score>=80?"情绪偏热，等待分歧后的结构确认":"聚焦高分板块核心，等待分钟条件",factors:mf.factors,promotion:mf.promotion,highPremium:mf.highPremium,history:[...marketHistory]};
     const ranked=day.groups.filter(g=>g.name!=="未分类"&&g.traded>=3).slice().sort((a,b)=>(b.averagePct??-999)-(a.averagePct??-999)||(b.limitUp??0)-(a.limitUp??0));
+    const currentRanks=new Map(ranked.map((g,j)=>[g.name,j+1]));
     const next=day.groups.map(g=>{
       const old=sectors.find(s=>s.name===g.name),sf=sectorFactors(g,day,past,rankHistory),sc=g.name!=="未分类"&&g.traded>=3&&g.traded/g.total>=.8?weightedScore(sf.factors):null,ph=phaseFor(sc,old?.score??null,old?.phase??"观察");
-      return {name:g.name,score:sc,delta:sc!==null&&old?.score!=null?sc-old.score:null,rank:0,phase:ph,label:sc===null?"待数据":sc>=75&&sf.topDays>=3?"主线":sc>=65?"主线候选":sc<40||ph==="转弱"?"退潮":"轮动",factors:sf.factors,history:[...(old?.history??[]),{date:day.date,score:sc,phase:ph}],cores:i>=days.length-2?coreScores(g,priceHistory.slice(0,i+1),sc,old?.cores??[]):[],coverage:g.traded,total:g.total,averagePct:g.averagePct,amountYi:g.amountYi,topDays:sf.topDays};
+      const qualification=industryQualification(g,day,sf.topDays,sf.complete,currentRanks.get(g.name)??null,ranked.length);
+      return {name:g.name,score:sc,delta:sc!==null&&old?.score!=null?sc-old.score:null,rank:0,phase:ph,label:industryLabel(sc,ph,qualification,g),qualification,factors:sf.factors,history:[...(old?.history??[]),{date:day.date,score:sc,phase:ph}],cores:i>=days.length-2?coreScores(g,priceHistory.slice(0,i+1),sc,old?.cores??[]):[],coverage:g.traded,total:g.total,averagePct:g.averagePct,amountYi:g.amountYi,topDays:sf.topDays};
     }).sort((a,b)=>(b.score??-1)-(a.score??-1)||b.amountYi-a.amountYi||a.name.localeCompare(b.name));
     next.forEach((s,j)=>s.rank=j+1);sectors=next;
     rankHistory.push(new Map(ranked.map((g,j)=>[g.name,j+1])));
   }
   const final=days.at(-1)!;
   const cores=sectors.filter(s=>s.score!==null&&s.score>=65).flatMap(s=>s.cores.filter(c=>c.score!==null&&c.score>=65&&c.pct>0).slice(0,3)).sort((a,b)=>(b.score??0)-(a.score??0)||b.amountYi-a.amountYi).slice(0,10);
-  return {date:final.date,asOf:final.asOf??`${final.date} 15:00`,mode:final.partial?"live":"close",market:market!,sectors,cores,warnings,fetchedAt:new Date().toISOString(),version:"P0.1",dates:days.map(d=>d.date)};
+  return {date:final.date,asOf:final.asOf??`${final.date} 15:00`,mode:final.partial?"live":"close",market:market!,sectors,cores,warnings,fetchedAt:new Date().toISOString(),version:"P0.2",dates:days.map(d=>d.date)};
 }

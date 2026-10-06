@@ -106,7 +106,7 @@ export async function decisionMinutes(code:string,date:string,mode:"close"|"live
   const stale=mode==="live"&&!minuteFresh(date,main?.bars.at(-1)?.time);
   if(stale)warnings.push("分钟行情延迟或缺失，暂停当前辅助信号");
   return {code,name:core?.name??code,date,mode,basisDate:prior.date,sector:group?.name??"未分类",bars:main?.bars??[],peers,preClose,floatShares,upLimit,
-    mainlineCore:group?.score!=null&&core?.score!=null?group.score>=65&&core.score>=65:null,
+    mainlineCore:group?.score!=null&&core?.score!=null?group.qualification.status==="通过"&&core.score>=65:null,
     marketAllowed:prior.market.score===null||prior.market.risk==="待数据"||mode==="live"&&liveAllowed===null?null:prior.market.score>=45&&prior.market.risk!=="高"&&(mode!=="live"||liveAllowed===true),basisCore:core,
     basisSector:group?{score:group.score,label:group.label,phase:group.phase}:null,marketBasis:{score:prior.market.score,risk:prior.market.risk},
     warnings:[...new Set(warnings)],fetchedAt:main?.fetchedAt??new Date().toISOString(),stale,blocked:warnings.some(w=>/40204|IP数量|权限|访问频次/.test(w))};
