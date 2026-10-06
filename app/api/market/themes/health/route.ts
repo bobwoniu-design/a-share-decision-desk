@@ -27,12 +27,13 @@ export async function GET(request: Request) {
     if (!current || !previous) throw new MarketError("概念目录读取异常");
     const currentQuality = auditThemeRows(current.rows, date, "index");
     const previousQuality = auditThemeRows(previous.rows, previousDate, "index");
+    const types = (rows: typeof current.rows) => Object.fromEntries([...new Set(rows.map(row => String(row.idx_type ?? "未知")))].map(type => [type, rows.filter(row => String(row.idx_type ?? "未知") === type).length]));
     const prevCodes = new Set(previous.rows.map(row => String(row.ts_code)));
     const candidate = current.rows.find(row => row.name === "人形机器人" && prevCodes.has(String(row.ts_code)))
       ?? current.rows.find(row => prevCodes.has(String(row.ts_code)));
     if (!candidate || !currentQuality.usable || !previousQuality.usable)
       return Response.json({ status: "invalid", source: "Tushare dc_index / dc_member", date, previousDate,
-        catalog: { current: currentQuality, previous: previousQuality }, checkedAt: new Date().toISOString(),
+        catalog: { current: currentQuality, previous: previousQuality, types: { current: types(current.rows), previous: types(previous.rows) } }, checkedAt: new Date().toISOString(),
         note: "目录为空或有重复、日期、代码问题，成员及主线判断暂停。" }, { headers: { "Cache-Control": "private, no-store" } });
     const board = String(candidate.ts_code);
     const members = await Promise.allSettled([currentKey, previousKey].map(trade_date =>
@@ -41,7 +42,7 @@ export async function GET(request: Request) {
       ? { date: i ? previousDate : date, reason: result.reason instanceof MarketError ? result.reason.message : "概念成员读取失败" }
       : null).filter(x => x !== null);
     if (memberFailures.length) return Response.json({ status: "unavailable", source: "Tushare dc_index / dc_member", date, previousDate,
-      catalog: { current: currentQuality, previous: previousQuality }, sample: { code: board, name: candidate.name }, failures: memberFailures,
+      catalog: { current: currentQuality, previous: previousQuality, types: { current: types(current.rows), previous: types(previous.rows) } }, sample: { code: board, name: candidate.name }, failures: memberFailures,
       checkedAt: new Date().toISOString(), note: "概念目录可用，但历史成员不可用；不能用最新成分回填历史。" }, { headers: { "Cache-Control": "private, no-store" } });
     const currentMembers = members[0].status === "fulfilled" ? members[0].value : null;
     const previousMembers = members[1].status === "fulfilled" ? members[1].value : null;
@@ -50,8 +51,9 @@ export async function GET(request: Request) {
     const previousMemberQuality = auditThemeRows(previousMembers.rows, previousDate, "member", board);
     return Response.json({ status: currentMemberQuality.usable && previousMemberQuality.usable ? "ready" : "invalid",
       source: "Tushare dc_index / dc_member", date, previousDate, checkedAt: new Date().toISOString(),
-      catalog: { current: currentQuality, previous: previousQuality, fetchedAt: [current.fetchedAt, previous.fetchedAt] },
+      catalog: { current: currentQuality, previous: previousQuality, types: { current: types(current.rows), previous: types(previous.rows) }, fetchedAt: [current.fetchedAt, previous.fetchedAt] },
       sample: { code: board, name: String(candidate.name), current: currentMemberQuality, previous: previousMemberQuality,
+        indexType: String(candidate.idx_type ?? "未知"), indexUp: Number(candidate.up_num ?? 0), indexDown: Number(candidate.down_num ?? 0),
         change: compareThemeMembers(previousMembers.rows, currentMembers.rows), fetchedAt: [currentMembers.fetchedAt, previousMembers.fetchedAt],
         exampleCodes: currentMembers.rows.slice(0, 5).map(row => String(row.con_code)) },
       note: "trade_date 是数据归属日，不能据此认定盘中公布时间；盘中判断只能使用当时已观察到的成分版本。" },

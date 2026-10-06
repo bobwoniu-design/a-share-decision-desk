@@ -187,7 +187,8 @@ function Home() {
           <div className="progress-items">
             <div><span className="tag">已上线</span><b>基础看盘与交易记录 · v0.5</b><p>真实日线和分钟数据、行业评分、个股分钟阶段、持仓、交易记录、复盘与统计。</p></div>
             <div><span className="tag">本次发布</span><b>五页分工 · v0.6</b><p>市场总览、选股与自选、持仓与交易、每日复盘、交易统计。市场和个股分开展示，切页保留日期与股票。</p></div>
-            <div><span className="tag">开发中</span><b>题材数据核验与主线雷达</b><p>核实题材成员历史、日期与权限后接入；现有行业排名明确标注为行业。</p></div>
+            <div><span className="tag">已核验</span><b>题材历史数据源</b><p>东财概念日表及历史成分可读取；9 月 30 日有 504 个概念。当前仍按行业展示排名。</p></div>
+            <div><span className="tag">待开发</span><b>题材主线雷达与全景</b><p>按历史日期展示成员、强弱与证据；保留行业参考，避免把行业排名当成题材主线。</p></div>
             <div><span className="tag">待开发</span><b>跨日阶段、交易计划与复盘关联</b><p>建立题材跨日阶段、计划版本、成交现场记录和执行质量统计。</p></div>
           </div>
           <p className="progress-note">分数与条件仍是待验证规则，买卖由你人工决定。</p>
