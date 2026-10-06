@@ -4,11 +4,11 @@ import { sectorGroups, type SectorOverview } from "./sectors";
 type Packet = {rows:Row[];fetchedAt:string};
 export class MarketError extends Error {}
 const inflight = new Map<string,Promise<Packet>>();
-export async function tushare(api:string,params:Record<string,unknown>,fields:string,cap=6000):Promise<Packet> {
+export async function tushare(api:string,params:Record<string,unknown>,fields:string,cap=6000,ttl=86400000):Promise<Packet> {
   const db = env.DB; if (!db) throw new MarketError("行情缓存暂时不可用");
   const key = JSON.stringify(["v1",api,params,fields]);
   const cached = await db.prepare("SELECT payload FROM market_cache WHERE cache_key = ?").bind(key).first<{payload:string}>();
-  if(cached){ const data=JSON.parse(cached.payload) as Packet; if(Date.now()-Date.parse(data.fetchedAt)<86400000) return data; }
+  if(cached){ const data=JSON.parse(cached.payload) as Packet; if(Date.now()-Date.parse(data.fetchedAt)<ttl) return data; }
   if(inflight.has(key)) return inflight.get(key)!;
   const work = (async()=>{
     const token=(env as unknown as {TUSHARE_TOKEN?:string}).TUSHARE_TOKEN?.trim();

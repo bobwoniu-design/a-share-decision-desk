@@ -29,6 +29,7 @@ export function minuteRows(rows: Row[], code: string, date: string): Bar[] {
     if (values.some(v => v === null || v < 0)) throw new Error("分钟行情字段不完整");
     const [open,high,low,close,vol,amount] = values as number[];
     if (low > Math.min(open,close) || high < Math.max(open,close) || low <= 0) throw new Error("分钟行情价格关系异常");
+    if ((vol===0)!==(amount===0) || (vol>0&&(amount/vol<low*.995||amount/vol>high*1.005))) throw new Error("分钟成交量/金额单位或均价校验失败");
     return {time,open,high,low,close,vol,amount};
   }).sort((a,b)=>a.time.localeCompare(b.time));
 }

@@ -145,8 +145,8 @@ function Home() {
         <span>
           <ShieldCheck size={13} /> 人工决策 · 无自动委托
         </span>
-        <span>首页：历史行情　/　交易与复盘：个人真实记录</span>
-        <span>短线决策台 · v0.4</span>
+        <span>首页：决策引擎　/　交易与复盘：个人真实记录</span>
+        <span>短线决策台 · v0.5</span>
       </footer>
       <TradeDialog />
       <EventDialog open={eventOpen} setOpen={setEventOpen} />

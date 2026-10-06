@@ -69,3 +69,11 @@ test("flat candles preserve exact OHLC equality when adjustment factors cancel",
  const h=dailyHistory([r],[{ts_code:code,trade_date:"20260930",adj_factor:2.317}],code,["2026-09-30"]);
  assert.equal(h.points[0].adjustedClose,h.points[0].adjustedOpen);assert.equal(h.points[0].adjustedClose,h.points[0].adjustedHigh);
 });
+
+
+test("minute VWAP rejects inconsistent zeros and incompatible units",()=>{
+ const r={ts_code:"600000.SH",trade_time:"2026-09-30 09:31:00",open:10,high:11,low:9,close:10,vol:100,amount:1000};
+ assert.throws(()=>minuteRows([{...r,amount:0}],r.ts_code,"2026-09-30"));
+ assert.throws(()=>minuteRows([{...r,amount:100000}],r.ts_code,"2026-09-30"));
+ assert.equal(minuteRows([{...r,amount:0,vol:0}],r.ts_code,"2026-09-30").length,1);
+});
