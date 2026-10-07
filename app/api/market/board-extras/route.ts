@@ -30,9 +30,9 @@ export async function GET(request:Request){
   const q=new URL(request.url).searchParams,date=q.get("date")??"",codes=(q.get("codes")??"").split(",").filter(Boolean);
   if(!validDate(date)||date>chinaNow().date||!codes.length||codes.length>15||new Set(codes).size!==codes.length||codes.some(code=>!codePattern.test(code)))return Response.json({error:"榜单附加数据参数无效"},{status:400});
   try{
-    const result=await derivedCache(`board-extras:v2:${date}:${codes.slice().sort().join(",")}`,date===chinaNow().date?60000:7*86400000,async():Promise<Extra>=>{
-      const {dates}=await marketDates(date,7);
-      if(dates.length!==7||dates.at(-1)!==date)throw new MarketError("近7个交易日不完整");
+    const result=await derivedCache(`board-extras:v3:20:${date}:${codes.slice().sort().join(",")}`,date===chinaNow().date?60000:7*86400000,async():Promise<Extra>=>{
+      const {dates}=await marketDates(date,20);
+      if(dates.length!==20||dates.at(-1)!==date)throw new MarketError("近20个交易日不完整");
       const [candles,related]=await Promise.all([stockCandles(dates,codes),stockThemes(date,codes)]);
       return {date,dates,byCode:Object.fromEntries(codes.map(code=>[code,{candles:candles.get(code)??[],themes:related.get(code)??{names:[],error:"题材成分未返回"}}]))};
     },false,(v:Extra)=>Object.keys(v.byCode).length===codes.length&&Object.values(v.byCode).every(item=>item.themes.error===null));

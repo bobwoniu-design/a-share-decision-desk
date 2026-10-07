@@ -1581,3 +1581,13 @@ input[type="datetime-local"] {
 .market-score-dialog .factor-list b{font-size:17px}
 .market-score-dialog .factor-bar{height:8px}
 @media(max-width:720px){.decision-header .market-decision{grid-template-columns:1fr}.decision-header .emotion-score{border-right:0;border-bottom:1px solid #31435d}.decision-header .market-verdict{grid-column:auto;border-top:0}.market-emotion-top.has-chart{grid-template-columns:minmax(110px,150px) minmax(0,1fr)}.market-score-dialog .factor-list>div{grid-template-columns:110px minmax(60px,1fr) 36px}.market-score-dialog .factor-list>div>span{grid-column:1/-1}}
+
+/* The limit-up list expands stock research in place; its thumbnail opens the shared chart dialog. */
+.board-table-wrap{max-height:none;overflow-x:auto}
+.board-table{min-width:1380px}
+.board-table .board-row-expanded>td{background:#1c304a}
+.board-table .board-expanded-row>td{padding:0!important;text-align:left!important;white-space:normal!important;background:#101d2e}
+.board-expanded-row .stock-detail-content{padding:12px 16px;border-top:1px solid #45658b}
+.board-watch-status{display:inline-block;padding:3px 7px;border:1px solid #38506d;border-radius:4px;color:#8ea5c2;font-size:12px;white-space:nowrap}
+.board-watch-status.active{border-color:#568e78;background:#19382f;color:#a5e5c6}
+.board-mini-cell .funnel-candle-trigger{display:inline-flex}
