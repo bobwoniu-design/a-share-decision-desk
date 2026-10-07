@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { RefreshCw } from "lucide-react";
 import { Panel } from "./workspace";
 import { useDesk } from "./provider";
-import {DecisionHeader, MarketEvidence, MarketScoreMethod, MinuteDecision, CoreProfile, useDecision} from "./decision";
+import {DecisionHeader, MarketEvidence, MinuteDecision, CoreProfile, useDecision} from "./decision";
 import type {DecisionOverview} from "@/lib/decision-engine";
 import {chinaNow} from "@/lib/minute-engine";
 import { calculate } from "@/lib/ledger";
@@ -16,7 +16,7 @@ import {MarketValidation} from "./market-validation";
 import { type MarketSnapshot } from "@/lib/market-data";
 const percent=(n:number|null|undefined)=>n==null?"—":`${n>=0?"+":""}${n.toFixed(2)}%`;
 export type MarketNavigation={mode:"close"|"live";date:string;code:string;themeCode?:string;selectedStock?:HistoryStock};
-type ResearchTab="history"|"validation"|"evidence"|"method";
+type ResearchTab="history"|"validation"|"evidence";
 export function HistoricalMarket({view,navigation,onNavigationChange,onSelectStock}:{view:"overview"|"selection";navigation:MarketNavigation;onNavigationChange:(value:MarketNavigation|((current:MarketNavigation)=>MarketNavigation))=>void;onSelectStock:()=>void}){
   const {ledger}=useDesk();
   const {mode,date,code,selectedStock}=navigation;
@@ -47,9 +47,9 @@ export function HistoricalMarket({view,navigation,onNavigationChange,onSelectSto
     {view==="overview"&&<>
       <DecisionHeader {...decision} showIndustry={dimension==="industry"} onSelect={s=>{update({code:s.code,selectedStock:s});onSelectStock();}} onSector={name=>{setSectorFocus(current=>({name,serial:current.serial+1}));const c=decision.data?.sectors.find(s=>s.name===name)?.cores[0];if(c)update({code:c.code,selectedStock:c});}}/>
       {mode==="close"&&<section aria-label="当日市场指标"><div className="market-section-title"><b>当日市场指标</b><span>所选交易日收盘口径</span></div><div className="metric-grid">{cards.map(([name,value,note])=><div className="metric" key={name}><label>{name}</label><strong>{value}</strong><div className="metric-bottom"><span>{note}</span></div></div>)}</div></section>}
+      {mode==="close"&&<section className="market-research" aria-label="历史与证据"><div className="market-section-title"><b>历史与证据</b><span>按需查看，历史结果首次计算后复用缓存</span></div><div className="market-research-tabs" role="tablist" aria-label="市场研究内容">{([['history','情绪历史'],['validation','环境历史检验'],['evidence','打板证据']] as const).map(([key,label])=><button key={key} role="tab" aria-selected={researchTab===key} className={researchTab===key?"active":""} onClick={()=>setResearchTab(key)}>{label}</button>)}</div>{researchTab&&<div className="market-research-content" role="tabpanel">{researchTab==="history"?<MarketHistory date={date} onDate={d=>update({mode:"close",date:d,selectedStock:undefined})}/>:researchTab==="validation"?<MarketValidation date={date}/>:<MarketEvidence data={decision.data}/>}</div>}</section>}
       <div className="market-dimension-tabs" aria-label="市场总览维度"><button aria-pressed={dimension==="theme"} className={dimension==="theme"?"active":""} onClick={()=>setDimension("theme")}>题材主线</button><button aria-pressed={dimension==="industry"} className={dimension==="industry"?"active":""} onClick={()=>setDimension("industry")}>行业板块</button><span>两个来源独立排名，分数不跨维度比较</span></div>
       {dimension==="theme"?<ThemeBrowser date={date} mode={mode} onSelect={(s,themeCode)=>{update({code:s.code,themeCode,selectedStock:{code:s.code,name:s.name,preClose:s.quote?.preClose}});onSelectStock();}}/>:<SectorBrowser date={date} code={code} mode={mode} scored={decision.data?.sectors} focus={sectorFocus} onSelect={s=>{update({code:s.code,themeCode:undefined,selectedStock:{code:s.code,name:s.name,preClose:s.quote?.preClose}});onSelectStock();}}/>}
-      {mode==="close"&&<section className="market-research" aria-label="历史与评分依据"><div className="market-section-title"><b>历史与评分依据</b><span>按需查看，历史结果首次计算后复用缓存</span></div><div className="market-research-tabs" role="tablist" aria-label="市场研究内容">{([['history','情绪历史'],['validation','环境历史检验'],['evidence','打板证据'],['method','评分与策略']] as const).map(([key,label])=><button key={key} role="tab" aria-selected={researchTab===key} className={researchTab===key?"active":""} onClick={()=>setResearchTab(key)}>{label}</button>)}</div>{researchTab&&<div className="market-research-content" role="tabpanel">{researchTab==="history"?<MarketHistory date={date} onDate={d=>update({mode:"close",date:d,selectedStock:undefined})}/>:researchTab==="validation"?<MarketValidation date={date}/>:researchTab==="evidence"?<MarketEvidence data={decision.data}/>:<MarketScoreMethod data={decision.data}/>}</div>}</section>}
     </>}
     {view==="selection"&&<div className="market-grid selection-grid">
       <div className="column"><FunnelBrowser date={date} mode={mode} selectedCode={code} onSelect={c=>update({code:c.code,themeCode:c.theme?.code,selectedStock:{code:c.code,name:c.name}})}/><Panel title="持仓 / 自选" extra={<span className="muted">个人记录</span>}><div className="history-personal">{personal.map(p=><button key={p.code} className={`tag ${p.code===code?"active":""}`} onClick={()=>update({code:p.code,themeCode:undefined,selectedStock:undefined})}>{p.name}</button>)}{!personal.length&&<span className="muted">录入期初持仓或自选后将在这里显示。</span>}<form onSubmit={e=>{e.preventDefault();const q=query.trim().toUpperCase();if(/^\d{6}\.(SH|SZ|BJ)$/.test(q))update({code:q,themeCode:undefined,selectedStock:undefined});}}><input aria-label="查询证券代码" placeholder="例如 600418.SH" pattern="[0-9]{6}\.(SH|SZ|BJ)" required value={query} onChange={e=>setQuery(e.target.value.toUpperCase())}/><button className="button">查看行情</button></form></div></Panel></div>
