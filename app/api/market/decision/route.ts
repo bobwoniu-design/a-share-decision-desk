@@ -12,8 +12,8 @@ export async function GET(request:Request){
   const theme=q.get("theme")??"",refresh=q.get("refresh")==="1",ttl=mode==="live"?15000:date===chinaNow().date?60000:7*86400000;
   if(!validDate(date)||!["close","live"].includes(mode)||!["overview","minutes","stock","groups","funnel"].includes(view)||["minutes","stock"].includes(view)&&(!code||!/^\d{6}\.(SH|SZ|BJ)$/.test(code))||theme&&!/^BK\d+\.DC$/.test(theme))return Response.json({error:"决策查询参数无效"},{status:400});
   try{
-    if(view==="funnel")return Response.json(await derivedCache(`funnel:${date}:${mode}`,ttl,()=>decisionFunnel(date,mode as "close"|"live"),refresh),{headers:{"Cache-Control":"private, no-store"}});
-    if(view==="minutes")return Response.json(await derivedCache(`minutes:${date}:${mode}:${code}:${theme}`,ttl,()=>decisionMinutes(code!,date,mode as "close"|"live",theme),refresh),{headers:{"Cache-Control":"private, no-store"}});
+    if(view==="funnel")return Response.json(await derivedCache(`funnel:${date}:${mode}`,ttl,()=>decisionFunnel(date,mode as "close"|"live"),refresh,v=>v.screenedThemes===0||v.verifiedThemes>0),{headers:{"Cache-Control":"private, no-store"}});
+    if(view==="minutes")return Response.json(await derivedCache(`minutes:${date}:${mode}:${code}:${theme}`,ttl,()=>decisionMinutes(code!,date,mode as "close"|"live",theme),refresh,v=>v.bars.length>0&&!v.blocked&&v.peers.every(p=>!p.error)&&v.themePeers.every(p=>!p.error)),{headers:{"Cache-Control":"private, no-store"}});
     if(mode==="close"&&["overview","stock"].includes(view))return Response.json(await derivedCache(`decision:${view}:${date}:${code??""}`,ttl,async()=>{
       const {overview}=await decisionData(date,"close");
       const sector=code?overview.sectors.find(s=>s.cores.some(c=>c.code===code)):null;

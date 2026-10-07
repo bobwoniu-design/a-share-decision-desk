@@ -4,8 +4,8 @@ type Cached<T>={expires:number;value:T};
 const pending=new Map<string,Promise<unknown>>();
 
 /** Cache only validated, successful derived results. Raw Tushare data retains its own cache. */
-export async function derivedCache<T>(key:string,ttlMs:number,compute:()=>Promise<T>,refresh=false):Promise<T>{
-  const db=env.DB,cacheKey=`derived:v2:${key}`;
+export async function derivedCache<T>(key:string,ttlMs:number,compute:()=>Promise<T>,refresh=false,cacheable:(value:T)=>boolean=()=>true):Promise<T>{
+  const db=env.DB,cacheKey=`derived:v3:${key}`;
   if(!refresh&&db){
     try{
       const row=await db.prepare("SELECT payload FROM market_cache WHERE cache_key=?").bind(cacheKey).first<{payload:string}>();
@@ -16,7 +16,7 @@ export async function derivedCache<T>(key:string,ttlMs:number,compute:()=>Promis
   if(running)return running;
   const work=(async()=>{
     const value=await compute();
-    if(db){
+    if(db&&cacheable(value)){
       try{
         const payload=JSON.stringify({expires:Date.now()+ttlMs,value} satisfies Cached<T>);
         if(new TextEncoder().encode(payload).byteLength<1_800_000)await db.prepare("INSERT INTO market_cache(cache_key,payload) VALUES(?,?) ON CONFLICT(cache_key) DO UPDATE SET payload=excluded.payload").bind(cacheKey,payload).run();
