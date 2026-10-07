@@ -1588,6 +1588,11 @@ input[type="datetime-local"] {
 .board-table .board-row-expanded>td{background:#1c304a}
 .board-table .board-expanded-row>td{padding:0!important;text-align:left!important;white-space:normal!important;background:#101d2e}
 .board-expanded-row .stock-detail-content{padding:12px 16px;border-top:1px solid #45658b}
-.board-watch-status{display:inline-block;padding:3px 7px;border:1px solid #38506d;border-radius:4px;color:#8ea5c2;font-size:12px;white-space:nowrap}
-.board-watch-status.active{border-color:#568e78;background:#19382f;color:#a5e5c6}
+.watchlist-toggle{display:inline-block;padding:4px 8px;border:1px solid #46658a;border-radius:4px;background:#182b43;color:#b9d8fc;font-size:12px;white-space:nowrap;cursor:pointer}
+.watchlist-toggle:hover{background:#254469;border-color:#79a9df}
+.watchlist-toggle.active{border-color:#568e78;background:#19382f;color:#a5e5c6}
+.watchlist-toggle.active:hover{background:#245245}
+.watchlist-toggle:disabled{opacity:.6;cursor:default}
+.watchlist-toggle:focus-visible{outline:2px solid #91bcf1;outline-offset:2px}
+.personal-row-actions{display:flex;align-items:center;justify-content:flex-end;gap:12px;white-space:nowrap}
 .board-mini-cell .funnel-candle-trigger{display:inline-flex}
