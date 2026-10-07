@@ -1273,10 +1273,17 @@ input[type="datetime-local"] {
 .board-label-candidate{background:#333c52;color:#c8d6ef;border-color:#586885}
 .board-label-risk{background:#3d3033;color:#f2b7bd;border-color:#8a555c}
 .board-card-score strong{font-size:25px;line-height:1;font-variant-numeric:tabular-nums;color:#d8e9ff}
+.board-card-score strong small{margin-left:2px;color:#91a9c8;font-size:11px;font-weight:500}
 .board-card-score small{font-size:12px;font-variant-numeric:tabular-nums}
 .board-card-meta{justify-content:flex-start;flex-wrap:wrap;color:#9caec5;font-size:12px}
 .board-card-meta span:first-child{font-size:14px;font-variant-numeric:tabular-nums;margin-right:auto}
 .board-card-foot{display:block;padding-top:7px;border-top:1px solid #2b405c;color:#9cb2cf;font-size:12px;line-height:1.35}
+.board-card-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));width:100%;gap:1px;padding-top:6px;border-top:1px solid #2b405c;color:#d7e7fb}
+.board-card-stats>span{display:flex;flex-direction:column;gap:2px;min-width:0;padding:2px 5px 0 0;border-right:1px solid #35506e}
+.board-card-stats>span:last-child{border-right:0}
+.board-card-stats b{font-size:13px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.board-card-stats b em{font-style:normal}
+.board-card-stats small{color:#91abc9;font-size:10px;white-space:nowrap}
 .board-detail{margin:4px 12px 12px;border:1px solid #476586;border-radius:8px;background:#101d2e;scroll-margin-top:70px;overflow:hidden}
 .board-detail-heading{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:12px 14px;background:#1a304c}
 .board-detail-heading small{font-size:12px;color:#9cb6d9}
