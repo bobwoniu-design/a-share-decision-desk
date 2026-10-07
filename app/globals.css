@@ -1383,6 +1383,14 @@ input[type="datetime-local"] {
 .stock-detail-content>.column{min-width:0}
 .minute-state-heading{grid-template-columns:repeat(3,minmax(0,1fr))}
 .minute-phase-explainer{padding:7px 12px;margin:0;color:#9eb6d2;font-size:12px;line-height:1.6;border-bottom:1px solid #29394e}
+.minute-chart-trigger{display:block;position:relative;width:100%;padding:0;border:0;background:transparent;text-align:left;cursor:zoom-in;color:inherit}
+.minute-chart-trigger:hover{background:#16283f}
+.minute-chart-trigger:focus-visible{outline:2px solid #81b4f4;outline-offset:-3px}
+.minute-chart-trigger>span{position:absolute;right:18px;top:12px;padding:4px 7px;border:1px solid #3c5b7e;border-radius:4px;background:#172b45;color:#b5d5fb;font-size:11px}
+.minute-chart-dialog{width:96vw;max-width:1280px;max-height:90vh;overflow:auto}
+.minute-chart-dialog .price-chart{width:100%;height:auto;min-height:0;padding:4px}
+.minute-chart-dialog .replay-control{padding:0 5px 8px}
+.minute-review-purpose{margin:0;padding:8px 12px;border-top:1px solid #293e57;color:#a9bfda;font-size:12px;line-height:1.6}
 @media(max-width:950px){.funnel-explain-grid{grid-template-columns:1fr}}
 @media(max-width:950px){.stock-detail-content .decision-timelines{grid-template-columns:1fr}}
 @media(max-width:850px){.minute-state-heading{grid-template-columns:repeat(2,minmax(0,1fr))}}
