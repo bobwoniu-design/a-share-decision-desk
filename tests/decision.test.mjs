@@ -5,7 +5,7 @@ import {buildDecision,weightedScore} from '../lib/decision-engine.ts';
 import {sectorGroups} from '../lib/sectors.ts';
 import {evaluateSignalDay} from '../lib/signal-metrics.ts';
 import {boardEvidence} from '../lib/board-evidence.ts';
-import {marketValidation} from '../lib/market-validation.ts';
+import {marketValidation,marketValidationFromSummaries} from '../lib/market-validation.ts';
 function sample(){let price=10;return Array.from({length:100},(_,i)=>{const prev=price;price=i<25?10+i*.02:i<35?10.48-(i-24)*.06:i<45?9.88+(i-35)*.006:i<65?9.94+(i-45)*.04:i<75?10.74+(i-65)*.12:i<85?11.94+(i-75)*.2:13.94-(i-85)*.35;const vol=i<25?1000:i<35?3000:i<45?600:i<65?4000: i<85?10000+i*150:20000;return {time:`${String(Math.floor((571+i)/60)).padStart(2,'0')}:${String((571+i)%60).padStart(2,'0')}`,open:prev,high:Math.max(prev,price)+.001,low:Math.min(prev,price)-.001,close:price,vol,amount:(prev+price)/2*vol};});}
 const bars=sample(),sector=bars.map(b=>({time:b.time,phase:'转强',strong:true,weak:false,reason:'validated test cohort',coverage:6,total:6}));
 const context={sector,theme:sector,mainlineCore:true,themeAllowed:true,marketAllowed:true,preClose:10,floatShares:1e7};
@@ -57,6 +57,17 @@ test('market validation uses only next day outcomes and excludes the terminal da
   const changed=structuredClone(d);changed.at(-1).prices.forEach(p=>p.pct=-10);
   const newer=marketValidation(changed,o,3);
   assert.deepEqual(newer.observations.slice(0,-1),r.observations.slice(0,-1));
+});
+test('quick market validation reuses dated summaries without future leakage or sparse-bucket claims',()=>{
+  const overview=buildDecision(days()),summary=overview.marketDays;
+  overview.market.history=overview.market.history.map(h=>({...h,score:50}));
+  const result=marketValidationFromSummaries(summary,overview.market.history);
+  assert.equal(result.requested,summary.length-1);
+  assert.equal(result.observations.at(-1).nextDate,summary.at(-1).date);
+  const changed=structuredClone(summary);changed.at(-1).equalWeightPct=-9;
+  const newer=marketValidationFromSummaries(changed,overview.market.history);
+  assert.deepEqual(newer.observations.slice(0,-1),result.observations.slice(0,-1));
+  assert.ok(result.buckets.every(b=>b.count>=3||b.averageNextDay===null));
 });
 
 test('official zero-volume minutes preserve price continuity but never generate a positive signal themselves',()=>{const all=bars.map((b,i)=>i===68||i===69?{...b,vol:0,amount:0}:b);const r=minuteEngine(all,context);assert.ok(r.frames[69].above>=3);assert.ok(!/^第[一二三]笔/.test(r.frames[69].signal));assert.equal(r.frames[69].quality,true);});

@@ -12,7 +12,8 @@ export type IndustryQualification={status:"通过"|"未通过"|"待核验";check
 export type ScoredSector={name:string;score:number|null;delta:number|null;rank:number;phase:Phase;label:string;qualification:IndustryQualification;factors:Factor[];history:{date:string;score:number|null;phase:Phase}[];cores:CoreStock[];coverage:number;total:number;averagePct:number|null;amountYi:number;topDays:number};
 export type MarketPlaybook={stance:string;focus:string;avoid:string;reason:string;allowNewRisk:boolean|null};
 export type MarketDecision={score:number|null;legacyScore:number|null;axes:Factor[];delta:number|null;cycle:string;previousCycle:string|null;phase:Phase;earning:string;risk:string;posture:string;playbook:MarketPlaybook;factors:Factor[];promotion:{value:number|null;advanced:number;total:number};highPremium:{value:number|null;matched:number;total:number};history:{date:string;score:number|null;cycle:string;phase:Phase}[]};
-export type DecisionOverview={date:string;asOf:string;mode:"close"|"live";market:MarketDecision;board:BoardEvidence|null;intraday?:{phase:Phase;status:string;observations:number;timeline:{time:string;phase:Phase;score:number|null;reason:string}[]};sectors:ScoredSector[];cores:CoreStock[];warnings:string[];fetchedAt:string;version:string;dates:string[]};
+export type MarketDaySummary={date:string;up:number;down:number;flat:number;total:number;amountYi:number;limitUp:number|null;limitDown:number|null;height:number|null;brokenRate:number|null;premium:number|null;equalWeightPct:number|null;partial:boolean};
+export type DecisionOverview={date:string;asOf:string;mode:"close"|"live";market:MarketDecision;marketDays:MarketDaySummary[];board:BoardEvidence|null;intraday?:{phase:Phase;status:string;observations:number;timeline:{time:string;phase:Phase;score:number|null;reason:string}[]};sectors:ScoredSector[];cores:CoreStock[];warnings:string[];fetchedAt:string;version:string;dates:string[]};
 const clamp=(n:number)=>Math.max(0,Math.min(100,n));
 const norm=(n:number,min:number,max:number)=>clamp((n-min)/(max-min)*100);
 const mean=(v:number[])=>v.length?v.reduce((s,n)=>s+n,0)/v.length:0;
@@ -150,7 +151,7 @@ export function buildDecision(days:DecisionDay[],warnings:string[]=[]):DecisionO
   if(days.some((d,i)=>i>0&&d.date<=days[i-1].date))throw new Error("市场输入必须按交易日递增且唯一");
   let sectors:ScoredSector[]=[],market:MarketDecision|null=null;
   const priceHistory=days.map(d=>new Map(d.prices.map(p=>[p.code,p])));
-  const marketHistory:MarketDecision["history"]=[],rankHistory:Map<string,number>[]=[];
+  const marketHistory:MarketDecision["history"]=[],marketDays:MarketDaySummary[]=[],rankHistory:Map<string,number>[]=[];
   for(let i=0;i<days.length;i++){
     const day=days[i],past=days.slice(0,i),mf=marketFactors(day,days[i-1],past),axes=marketAxes(day,mf),score:number|null=weightedScore(axes,.75),legacyScore=weightedScore(mf.factors);
     const lastMarket=market as MarketDecision|null;
@@ -159,6 +160,11 @@ export function buildDecision(days:DecisionDay[],warnings:string[]=[]):DecisionO
     const cycle=score===null?"待数据":score<30?"冰点":delta!==null&&delta<=-10?"退潮":score>=80?"高潮":delta!==null&&delta>=8&&prev!==null&&prev<55?"修复":score>=60?"发酵":delta!==null&&delta<0?"分歧":"修复";
     const high=mf.highPremium.value,risk=mf.highPremium.total===0||high===null||mf.br===null?"待数据":high<0||mf.br>40?"高":high<2||mf.br>25?"中":"低";
     marketHistory.push({date:day.date,score,cycle,phase});
+    const ups=day.limits?.filter(r=>r.limit==="U"),downs=day.limits?.filter(r=>r.limit==="D");
+    marketDays.push({date:day.date,up:day.prices.filter(p=>p.pct>0).length,down:day.prices.filter(p=>p.pct<0).length,flat:day.prices.filter(p=>p.pct===0).length,total:day.prices.length,
+      amountYi:day.prices.filter(p=>/\.(SH|SZ)$/.test(p.code)).reduce((sum,p)=>sum+p.amount,0)/1e8,
+      limitUp:ups?.length??null,limitDown:downs?.length??null,height:ups?.length?Math.max(...ups.map(r=>Number(r.limit_times)||0)):ups?0:null,
+      brokenRate:mf.br,premium:mf.premium,equalWeightPct:day.prices.length?mean(day.prices.map(p=>p.pct)):null,partial:!!day.partial});
     const playbook=marketPlaybook(score,cycle,phase,risk);
     market={score,legacyScore,axes,delta,cycle,previousCycle:lastMarket?.cycle??null,phase,earning:score===null?"待数据":score>=65?"偏强":score>=45?"分化":"偏弱",risk,posture:playbook.focus,playbook,factors:mf.factors,promotion:mf.promotion,highPremium:mf.highPremium,history:[...marketHistory]};
     const ranked=day.groups.filter(g=>g.name!=="未分类"&&g.traded>=3).slice().sort((a,b)=>(b.averagePct??-999)-(a.averagePct??-999)||(b.limitUp??0)-(a.limitUp??0));
@@ -173,5 +179,5 @@ export function buildDecision(days:DecisionDay[],warnings:string[]=[]):DecisionO
   }
   const final=days.at(-1)!;
   const cores=sectors.filter(s=>s.score!==null&&s.score>=65).flatMap(s=>s.cores.filter(c=>c.score!==null&&c.score>=65&&c.pct>0).slice(0,3)).sort((a,b)=>(b.score??0)-(a.score??0)||b.amountYi-a.amountYi).slice(0,10);
-  return {date:final.date,asOf:final.asOf??`${final.date} 15:00`,mode:final.partial?"live":"close",market:market!,board:final.board??null,sectors,cores,warnings,fetchedAt:new Date().toISOString(),version:"P0.3",dates:days.map(d=>d.date)};
+  return {date:final.date,asOf:final.asOf??`${final.date} 15:00`,mode:final.partial?"live":"close",market:market!,marketDays,board:final.board??null,sectors,cores,warnings,fetchedAt:new Date().toISOString(),version:"P0.3",dates:days.map(d=>d.date)};
 }

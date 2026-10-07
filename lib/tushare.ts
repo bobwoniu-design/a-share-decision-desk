@@ -84,11 +84,26 @@ export async function marketDates(date:string,count:number){
   if(!dates.length)throw new MarketError("没有取得该日期之前的交易日历");
   return {date,dates,requestedDays:count,fetchedAt:packet.fetchedAt};
 }
+export type MarketIndexPoint={date:string;open:number;high:number;low:number;close:number;pct:number};
+export type MarketIndexHistory={code:"000001.SH";name:"上证综指";dates:string[];points:MarketIndexPoint[];missingDates:string[];fetchedAt:string};
+export async function marketIndexHistory(date:string):Promise<MarketIndexHistory>{
+  const {dates}=await marketDates(date,20);
+  if(dates.at(-1)!==date)throw new MarketError(`${date} 不是交易日`);
+  const packet=await tushare("index_daily",{ts_code:"000001.SH",start_date:dates[0].replaceAll("-",""),end_date:date.replaceAll("-","")},"ts_code,trade_date,open,high,low,close,pct_chg",3000);
+  const wanted=new Set(dates.map(d=>d.replaceAll("-",""))),seen=new Set<string>();
+  const points=packet.rows.map(r=>{
+    const d=String(r.trade_date),open=numeric(r.open),high=numeric(r.high),low=numeric(r.low),close=numeric(r.close),pct=numeric(r.pct_chg);
+    if(r.ts_code!=="000001.SH"||!wanted.has(d)||seen.has(d)||open===null||high===null||low===null||close===null||pct===null||low<=0||low>Math.min(open,close)||high<Math.max(open,close))throw new MarketError("指数K线日期或价格校验失败");
+    seen.add(d);return {date:`${d.slice(0,4)}-${d.slice(4,6)}-${d.slice(6)}`,open,high,low,close,pct};
+  }).sort((a,b)=>a.date.localeCompare(b.date));
+  if(!points.length)throw new MarketError("所选日期没有返回上证综指日线");
+  return {code:"000001.SH",name:"上证综指",dates,points,missingDates:dates.filter(d=>!seen.has(d.replaceAll("-",""))),fetchedAt:packet.fetchedAt};
+}
 export async function marketDailyHistory(code:string,date:string):Promise<DailyHistory>{
   const {dates}=await marketDates(date,60),params={ts_code:code,start_date:dates[0].replaceAll("-",""),end_date:dates.at(-1)!.replaceAll("-","")};
   const packet=await tushare("daily",params,"ts_code,trade_date,open,high,low,close,pre_close,pct_chg,vol,amount");
   if(!packet.rows.length)throw new MarketError("该证券在所选60个交易日内没有A股日线。请核对代码；基金暂不纳入此视图。");
-  let factors:Row[]=[],warnings:string[]=[];
+  let factors:Row[]=[];const warnings:string[]=[];
   try{factors=(await tushare("adj_factor",params,"ts_code,trade_date,adj_factor")).rows;}catch(e){warnings.push(e instanceof MarketError?e.message:"复权因子读取失败");}
   const result=dailyHistory(packet.rows,factors,code,dates);
   if(!result.adjusted)warnings.push("复权因子不完整：仅展示原始收盘价，不计算跨日收益和均线。");

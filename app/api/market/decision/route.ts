@@ -15,7 +15,7 @@ export async function GET(request:Request){
     if(view==="basis"){const basis=await minuteBasis(date);return Response.json({date,basisDate:basis.prior.date,ready:true},{headers:{"Cache-Control":"private, no-store"}});}
     if(view==="funnel")return Response.json(await derivedCache(`funnel:${date}:${mode}`,ttl,()=>decisionFunnel(date,mode as "close"|"live"),refresh,v=>v.screenedThemes===0||v.verifiedThemes>0),{headers:{"Cache-Control":"private, no-store"}});
     if(view==="minutes")return Response.json(await derivedCache(`minutes:${date}:${mode}:${code}:${theme}`,ttl,()=>decisionMinutes(code!,date,mode as "close"|"live",theme),refresh,v=>v.bars.length>0&&!v.blocked&&v.peers.every(p=>!p.error)&&v.themePeers.every(p=>!p.error)),{headers:{"Cache-Control":"private, no-store"}});
-    if(mode==="close"&&["overview","stock"].includes(view))return Response.json(await derivedCache(`decision:${view}:${date}:${code??""}`,ttl,async()=>{
+    if(mode==="close"&&["overview","stock"].includes(view))return Response.json(await derivedCache(`decision:v2:${view}:${date}:${code??""}`,ttl,async()=>{
       const {overview}=await decisionData(date,"close");
       const sector=code?overview.sectors.find(s=>s.cores.some(c=>c.code===code)):null;
       return view==="stock"?{date,core:sector?.cores.find(c=>c.code===code)??null,sector:sector?{...sector,cores:sector.cores.slice(0,10)}:null}:{...overview,sectors:overview.sectors.map(s=>({...s,cores:s.cores.slice(0,10)}))};
