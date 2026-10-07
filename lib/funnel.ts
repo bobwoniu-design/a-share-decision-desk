@@ -1,12 +1,13 @@
-import { decisionData, minuteBasis } from "./decision-data";
+import { decisionData } from "./decision-data";
 import type { CoreStock, ScoredSector } from "./decision-engine";
 import { auditThemeRows } from "./theme-quality";
 import { themeOverview } from "./theme-data";
 import type { ScoredTheme } from "./themes";
 import { tushare } from "./tushare";
+import {assessCandidateRisk,type CandidateRisk} from "./candidate-risk";
 
 export type FunnelTheme={code:string;name:string;label:string;phase:string;score:number|null;rank:number|null;role:string};
-export type FunnelCandidate={code:string;name:string;industry:string;industryLabel:string;industryPhase:string;theme:FunnelTheme|null;themeMatches:string[];role:string;positionScore:number|null;opportunityScore:number|null;action:string;status:"重点观察"|"条件观察"|"证据不足";height:number|null;pct:number;amountYi:number;reasons:string[];missing:string[];triggers:string[]};
+export type FunnelCandidate={code:string;name:string;industry:string;industryLabel:string;industryPhase:string;theme:FunnelTheme|null;themeMatches:string[];role:string;positionScore:number|null;opportunityScore:number|null;action:string;status:"重点观察"|"条件观察"|"证据不足";height:number|null;pct:number;amountYi:number;reasons:string[];missing:string[];triggers:string[];risk:CandidateRisk;inclusionPaths:string[];basisDate:string};
 export type FunnelOverview={date:string;basisDate:string;mode:"close"|"live";version:string;market:{cycle:string;score:number|null;stance:string;focus:string;avoid:string;allowNewRisk:boolean|null};screenedThemes:number;verifiedThemes:number;industryCount:number;candidateCount:number;focusCount:number;candidates:FunnelCandidate[];warnings:string[];fetchedAt:string};
 
 type Match={theme:ScoredTheme;rank:number|null;role:string};
@@ -17,10 +18,9 @@ const scoreIndustry=(industry:ScoredSector)=>industry.qualification.status==="�
 
 export async function decisionFunnel(date:string,mode:"close"|"live"):Promise<FunnelOverview>{
   const [{overview:decision,days},themes]=await Promise.all([decisionData(date,mode),themeOverview(date,mode)]);
-  if(mode==="close")await minuteBasis(date,days);
   const day=days.at(-1)!;
-  const shortlist=themes.themes.filter(t=>t.kind==="题材"&&["主线初筛","主线候选","待梯队核验"].includes(t.label)).slice(0,8);
-  const warnings=["题材只核对强度靠前的至多8个候选；未匹配不等于个股没有题材归属。收盘候选只能用于盘后复盘，不能回填为当时盘中已知名单。"];
+  const shortlist=themes.themes.filter(t=>t.kind==="题材"&&["主线初筛","主线候选","待梯队核验"].includes(t.label)).slice(0,20);
+  const warnings=["题材核对强度靠前的至多20个候选；未匹配不等于个股没有题材归属。收盘候选只能用于盘后复盘，不能回填为当时盘中已知名单。"];
   const matches=new Map<string,Match[]>(),quote=new Map(day.prices.map(p=>[p.code,p])),limits=new Map((day.limits??[]).map(r=>[String(r.ts_code),r]));
   let verifiedThemes=0;
   for(let i=0;i<shortlist.length;i+=4){
@@ -59,10 +59,12 @@ export async function decisionFunnel(date:string,mode:"close"|"live"):Promise<Fu
     const status:FunnelCandidate["status"]=opportunityScore===null?"证据不足":qualified&&market.allowNewRisk===true&&opportunityScore>=70&&positionScore!==null&&positionScore>=75?"重点观察":"条件观察";
     const action=market.allowNewRisk===null?"待市场数据":market.allowNewRisk===false?"防守观察":!best?"待题材核对":!qualified?"等主线确认":role.includes("后排")?"暂不追后排":"等分钟承接";
     const reasons=[`市场：${decision.market.cycle} · ${market.stance}`,`行业：${sector.name} ${sector.label} · ${sector.phase}`,best?`题材：${best.theme.name} ${best.theme.label} · ${best.theme.phase}`:"本轮题材成分未匹配",`地位：${role} · ${positionScore??"—"}分`,`当日涨幅 ${price.pct.toFixed(2)}% · ${core.height??"—"}板`];
-    const missing=[...(best?[]:["尚未核对本轮8个题材以外的归属"]),...(best&&best.theme.qualification.status!=="通过"?["题材主线资格未通过"]:[]),...(sector.qualification.status!=="通过"?["行业主线资格未通过"]:[]),...(market.allowNewRisk!==true?["市场环境未确认可观察新风险"]:[]),"分钟承接、VWAP及题材同步需进入个股页核对"];
+    const missing=[...(best?[]:["本轮已核对题材未匹配；其他题材归属未核验"]),...(best&&best.theme.qualification.status!=="通过"?["题材主线资格未通过"]:[]),...(sector.qualification.status!=="通过"?["行业主线资格未通过"]:[]),...(market.allowNewRisk!==true?["市场环境未确认可观察新风险"]:[]),"分钟承接、VWAP及题材同步需进入个股页核对"];
     const theme=best?{code:best.theme.code,name:best.theme.name,label:best.theme.label,phase:best.theme.phase,score:best.theme.score,rank:best.rank,role:best.role}:null;
-    return [{code,name:core.name,industry:sector.name,industryLabel:sector.label,industryPhase:sector.phase,theme,themeMatches:all.map(m=>m.theme.name),role,positionScore,opportunityScore,action,status,height:core.height,pct:price.pct,amountYi:price.amount/1e8,reasons,missing,triggers:["市场与题材不继续转弱","个股分歧后承接并站稳VWAP","题材与行业独立样本同分钟确认"]} satisfies FunnelCandidate];
+    const limit=limits.get(code),inclusionPaths=[...((sector.score??0)>=55&&(core.score??0)>=55&&price.pct>=-2?[`行业 ${sector.name}：板块分≥55、核心分≥55、涨幅≥-2%，取前5`]:[]),...(all.some(m=>m.rank!==null||m.role==="容量中军候选")?[`已核验题材：前三量价梯队或成交额第一`]:[])];
+    const risk=assessCandidateRisk({pct:price.pct,amountYi:price.amount/1e8,height:core.height,limit:String(limit?.limit??"")||null,openTimes:limit?.open_times==null?null:Number(limit.open_times),asOf:day.asOf??`${date} 15:00`});
+    return [{code,name:core.name,industry:sector.name,industryLabel:sector.label,industryPhase:sector.phase,theme,themeMatches:all.map(m=>m.theme.name),role,positionScore,opportunityScore,action,status,height:core.height,pct:price.pct,amountYi:price.amount/1e8,reasons,missing,triggers:["市场与题材不继续转弱","个股分歧后承接并站稳VWAP","题材与行业独立样本同分钟确认"],risk,inclusionPaths,basisDate:themes.asOfDate} satisfies FunnelCandidate];
   }).sort((a,b)=>(b.opportunityScore??-1)-(a.opportunityScore??-1)||(b.positionScore??-1)-(a.positionScore??-1)||b.amountYi-a.amountYi).slice(0,40);
   if(!verifiedThemes)warnings.push("题材历史成分均未核验成功，题材交叉验证保持未知；未输出完整交易机会预评。");
-  return {date,basisDate:themes.asOfDate,mode,version:"FUNNEL-0.1",market:{cycle:decision.market.cycle,score:decision.market.score,stance:decision.market.playbook.stance,focus:decision.market.playbook.focus,avoid:decision.market.playbook.avoid,allowNewRisk:decision.market.playbook.allowNewRisk},screenedThemes:shortlist.length,verifiedThemes,industryCount:decision.sectors.filter(s=>s.label==="主线初筛"||s.label==="主线候选").length,candidateCount:candidates.length,focusCount:candidates.filter(c=>c.status==="重点观察").length,candidates,warnings,fetchedAt:new Date().toISOString()};
+  return {date,basisDate:themes.asOfDate,mode,version:"FUNNEL-0.2",market:{cycle:decision.market.cycle,score:decision.market.score,stance:decision.market.playbook.stance,focus:decision.market.playbook.focus,avoid:decision.market.playbook.avoid,allowNewRisk:decision.market.playbook.allowNewRisk},screenedThemes:shortlist.length,verifiedThemes,industryCount:decision.sectors.filter(s=>s.label==="主线初筛"||s.label==="主线候选").length,candidateCount:candidates.length,focusCount:candidates.filter(c=>c.status==="重点观察").length,candidates,warnings,fetchedAt:new Date().toISOString()};
 }
