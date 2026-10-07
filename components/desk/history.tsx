@@ -47,5 +47,14 @@ export function HistoricalMarket({view,navigation,onNavigationChange,onSelectSto
 }
 
 function SelectionStockDetail({stock,candidate,date,mode,themeCode,onClose}:{stock:HistoryStock;candidate?:FunnelCandidate;date:string;mode:"close"|"live";themeCode?:string;onClose:()=>void}){
-  return <div className="stock-detail-content"><div className="selection-detail-heading"><div><b>{stock.name}</b><span>{stock.code} · {date} · {mode==="live"?"盘中监测":"历史复盘"}</span></div><button className="text-link" onClick={onClose}>收起详情</button></div>{candidate&&<CandidateExplanation candidate={candidate}/>}<CoreProfile stock={stock} date={date} mode={mode}/><InstrumentHistory key={`${date}:${stock.code}`} stock={stock} date={date} live={mode==="live"} minutes={(s,d,showChart)=><MinuteDecision key={`${s?.code}${d}${mode}${themeCode??""}`} stock={s} date={d} showChart={showChart} mode={mode} themeCode={themeCode}/>}/>{mode==="close"&&<ValidationPanel key={`${stock.code}:${themeCode??""}:${date}`} code={stock.code} date={date} themeCode={themeCode}/>}</div>;
+  type DetailTab="basis"|"minute"|"daily"|"core"|"validation";
+  const [tab,setTab]=useState<DetailTab>(candidate?"basis":"minute");
+  const tabs:[DetailTab,string][]=[...(candidate?[["basis","观察依据"] as [DetailTab,string]]:[]),["minute",mode==="live"?"实时分时":"分时决策"],["daily","日K走势"],["core","核心度"],...(mode==="close"?[["validation","历史检验"] as [DetailTab,string]]:[])];
+  return <div className="stock-detail-content"><div className="selection-detail-heading"><div><b>{stock.name}</b><span>{stock.code} · {date} · {mode==="live"?"盘中监测":"历史复盘"}</span></div><button className="text-link" onClick={onClose}>收起详情</button></div><nav className="stock-detail-tabs" aria-label={`${stock.name}详情页签`}>{tabs.map(([id,label])=><button key={id} type="button" className={tab===id?"active":""} aria-current={tab===id?"page":undefined} onClick={()=>setTab(id)}>{label}</button>)}</nav><div className="stock-detail-tab-panel" role="region" aria-label={tabs.find(([id])=>id===tab)?.[1]}>
+    {tab==="basis"&&candidate&&<CandidateExplanation candidate={candidate}/>}
+    {tab==="minute"&&<InstrumentHistory fixedMode="minute" stock={stock} date={date} live={mode==="live"} minutes={(s,d,showChart)=><MinuteDecision key={`${s?.code}${d}${mode}${themeCode??""}`} stock={s} date={d} showChart={showChart} mode={mode} themeCode={themeCode}/>}/>}
+    {tab==="daily"&&<InstrumentHistory fixedMode="daily" stock={stock} date={date} live={mode==="live"} minutes={()=>null}/>}
+    {tab==="core"&&<CoreProfile stock={stock} date={date} mode={mode}/>}
+    {tab==="validation"&&mode==="close"&&<ValidationPanel key={`${stock.code}:${themeCode??""}:${date}`} code={stock.code} date={date} themeCode={themeCode}/>}
+  </div></div>;
 }
