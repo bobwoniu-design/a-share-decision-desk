@@ -179,7 +179,7 @@ function Home() {
           <ShieldCheck size={13} /> 人工决策 · 无自动委托
         </span>
         <span>市场总览：环境与板块　/　选股与自选：个股分析　/　新闻：盘前速览</span>
-        <span>短线决策台 · v1.4 开发中</span>
+        <span>短线决策台 · v1.5 开发中</span>
       </footer>
       <TradeDialog />
       <SettingsDialog open={settingsOpen} setOpen={setSettingsOpen} />
@@ -203,6 +203,7 @@ function Home() {
             <div><span className="tag">本次发布</span><b>盘中观察与60日环境检验 · v1.2</b><p>只有真实采集的盘中快照进入时间线；收盘页可按需读取80日数据，用20日预热、60日对照下一交易日市场表现。</p></div>
             <div><span className="tag">本次发布</span><b>页面与个股加载提速 · v1.3</b><p>历史候选、题材与分钟结果复用已核验缓存；股票参照分钟线并行读取；日K与核心度依据改为按需加载。</p></div>
             <div><span className="tag">已上线</span><b>公司研究与盘前新闻</b><p>个股详情增加公司主营与产品构成、公告及风险时间线、核对清单、机构研报；新闻独立成页，支持盘前与全天窗口、来源和关键词筛选。不可用的数据源明确标为未核验。</p></div>
+            <div><span className="tag">已上线</span><b>个股图表统一切换 · v1.5</b><p>详情页与候选股放大图共用分时／日K切换；点击日K交易日直接查看该日分时，保留VWAP、成交量和三条状态带。</p></div>
             <div><span className="tag">待开发</span><b>长期样本外信号验证与完整账户风险</b><p>60日环境对照不等于买卖信号回测；账户净值与回撤仍需现金流水和逐日估值。</p></div>
           </div>
           <p className="progress-note">分数与条件仍是待验证规则，买卖由你人工决定。</p>
