@@ -1,5 +1,5 @@
 "use client";
-import {useState} from "react";
+import {useEffect,useState} from "react";
 import {Panel} from "./workspace";
 import {useDecision} from "./decision";
 import type {FunnelCandidate,FunnelOverview} from "@/lib/funnel";
@@ -8,6 +8,7 @@ const filters=["全部","重点观察","条件观察","证据不足"] as const;
 const show=(n:number|null)=>n===null?"—":String(n);
 export function FunnelBrowser({date,mode,selectedCode,onSelect}:{date:string;mode:"close"|"live";selectedCode:string;onSelect:(candidate:FunnelCandidate)=>void}){
   const {data,error,busy,retry}=useDecision<FunnelOverview>(`/api/market/decision?view=funnel&date=${date}&mode=${mode}`,mode==="live");
+  useEffect(()=>{if(!data||mode!=="close")return;const controller=new AbortController();void fetch(`/api/market/decision?view=basis&date=${date}&mode=close`,{signal:controller.signal,cache:"no-store"}).catch(()=>undefined);return()=>controller.abort();},[data,date,mode]);
   const [filter,setFilter]=useState<(typeof filters)[number]>("全部");
   const candidates=data?.candidates??[],visible=candidates.filter(c=>filter==="全部"||c.status===filter),selected=candidates.find(c=>c.code===selectedCode);
   return <Panel title="交易候选池" extra={<span className="muted">{mode==="live"?"盘中快照 · 分钟条件需点开核对":"收盘观察 · 不回填盘中"}</span>} className="funnel-browser">

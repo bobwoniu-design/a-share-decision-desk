@@ -1,11 +1,12 @@
 import {tushare,marketDates,marketMinutes,MarketError} from "./tushare";
 import {dailyRows,minuteRows,numeric,type Row,type Bar} from "./market-data";
 import {sectorGroups} from "./sectors";
-import {buildDecision,type CoreStock,type DecisionDay,type DecisionOverview} from "./decision-engine";
+import {buildDecision,type CoreStock,type DecisionDay,type DecisionOverview,type ScoredSector} from "./decision-engine";
 import {chinaNow,minuteFresh,type PeerSeries} from "./minute-engine";
 import {themeOverview} from "./theme-data";
 import {auditThemeRows} from "./theme-quality";
 import {boardEvidence} from "./board-evidence";
+import {derivedCache} from "./derived-cache";
 
 const limitFields="ts_code,trade_date,name,industry,limit,limit_times,close,pct_chg,amount,fd_amount,first_time,last_time,open_times";
 const jobs=new Map<string,Promise<{overview:DecisionOverview;days:DecisionDay[]}>>();
@@ -86,23 +87,45 @@ export async function realtimeMinutes(code:string,date:string){
   const bars=minuteRows(rows,code,date).filter(b=>b.time<now.time);
   return {code,date,bars,fetchedAt:p.fetchedAt,source:"Tushare rt_min_daily"};
 }
+type MinuteCore=Pick<CoreStock,"code"|"name"|"score"|"roles"|"height"|"amountYi">;
+type MinuteSector=Pick<ScoredSector,"name"|"score"|"label"|"phase">&{qualification:{status:ScoredSector["qualification"]["status"]};cores:MinuteCore[]};
+type MinutePrior={date:string;market:{score:number|null;risk:string;playbook:{allowNewRisk:boolean|null}};sectors:MinuteSector[]};
+type MinuteBasis={prior:MinutePrior;references:[string,number][]};
+const minuteBasisKey=(date:string)=>`minute-basis:v1:${date}`;
+function compactPrior(overview:DecisionOverview):MinutePrior{
+  return {date:overview.date,market:{score:overview.market.score,risk:overview.market.risk,playbook:{allowNewRisk:overview.market.playbook.allowNewRisk}},
+    sectors:overview.sectors.map(s=>({name:s.name,score:s.score,label:s.label,phase:s.phase,qualification:{status:s.qualification.status},cores:s.cores.map(c=>({code:c.code,name:c.name,score:c.score,roles:c.roles,height:c.height,amountYi:c.amountYi}))}))};
+}
+function makeMinuteBasis(days:DecisionDay[]):MinuteBasis{
+  const prior=compactPrior(buildDecision(days.slice(0,-1)));
+  return {prior,references:days.at(-1)!.prices.map(p=>[p.code,p.preClose])};
+}
+/** Reuse the date's causal market/industry basis across stock clicks and worker restarts. */
+export async function minuteBasis(date:string,days?:DecisionDay[]):Promise<MinuteBasis>{
+  return derivedCache(minuteBasisKey(date),date===chinaNow().date?60000:7*86400000,async()=>makeMinuteBasis(days??(await decisionData(date,"close")).days),false,b=>b.prior.date<date&&b.references.length>0&&b.prior.sectors.length>0);
+}
 export type MinuteBundle={
   code:string;name:string;date:string;mode:"close"|"live";basisDate:string;sector:string;
   bars:Bar[];peers:PeerSeries[];themePeers:PeerSeries[];themeBasis:{code:string;name:string;label:string;phase:string;date:string}|null;preClose:number|null;floatShares:number|null;upLimit:number|null;
-  mainlineCore:boolean|null;themeAllowed:boolean|null;marketAllowed:boolean|null;basisCore:ReturnType<typeof buildDecision>["cores"][number]|null;
+  mainlineCore:boolean|null;themeAllowed:boolean|null;marketAllowed:boolean|null;basisCore:MinuteCore|null;
   basisSector:{score:number|null;label:string;phase:string}|null;marketBasis:{score:number|null;risk:string};
   warnings:string[];fetchedAt:string;stale:boolean;blocked:boolean;
 };
 export async function decisionMinutes(code:string,date:string,mode:"close"|"live",themeCode=""):Promise<MinuteBundle>{
-  const warnings:string[]=[],references=new Map<string,number>();let prior:DecisionOverview,liveAllowed:boolean|null=null;
+  const warnings:string[]=[],references=new Map<string,number>();let prior:MinutePrior,liveAllowed:boolean|null=null;
   try{
-    const {days,overview}=await decisionData(date,mode);prior=buildDecision(days.slice(0,-1));
-    days.at(-1)!.prices.forEach(p=>references.set(p.code,p.preClose));
-    if(mode==="live")liveAllowed=overview.market.playbook.allowNewRisk;
+    if(mode==="close"){
+      const basis=await minuteBasis(date);prior=basis.prior;
+      basis.references.forEach(([stock,price])=>references.set(stock,price));
+    }else{
+      const {days,overview}=await decisionData(date,mode);prior=compactPrior(buildDecision(days.slice(0,-1)));
+      days.at(-1)!.prices.forEach(p=>references.set(p.code,p.preClose));
+      liveAllowed=overview.market.playbook.allowNewRisk;
+    }
   }catch(e){
     if(mode!=="live")throw e;
     const {dates}=await marketDates(date,20);if(dates.at(-1)!==date)throw new MarketError(`${date} 不是交易日`);
-    prior=(await decisionData(dates.at(-2)!,"close")).overview;
+    prior=compactPrior((await decisionData(dates.at(-2)!,"close")).overview);
     warnings.push(`盘中全市场条件未知，暂停三笔提示：${e instanceof Error?e.message:"读取失败"}`);
     // Minute permissions are independent of realtime daily permissions. Keep the price state usable.
     try{const p=await tushare("stk_limit",{trade_date:date.replaceAll("-","")},"ts_code,trade_date,pre_close,up_limit,down_limit",5800);
@@ -122,7 +145,7 @@ export async function decisionMinutes(code:string,date:string,mode:"close"|"live
   // Freeze constituents and roles before the session; exclude the selected stock from confirmation.
   const peersWanted=group?group.cores.filter(c=>c.code!==code).sort((a,b)=>(a.roles[0]==="观察成员"?1:0)-(b.roles[0]==="观察成员"?1:0)||(b.score??-1)-(a.score??-1)).slice(0,6):[];
   peersWanted.forEach(p=>{void fetchMinutes(p.code).catch(()=>undefined);});
-  let themeAllowed:boolean|null=null,themeBasis:MinuteBundle["themeBasis"]=null,themePeersWanted:CoreStock[]=[];
+  let themeAllowed:boolean|null=null,themeBasis:MinuteBundle["themeBasis"]=null,themePeersWanted:MinuteCore[]=[];
   if(themeCode){
     try{
       const overview=await themeOverview(prior.date,"close"),theme=overview.themes.find(t=>t.code===themeCode&&t.kind==="题材");
@@ -145,7 +168,7 @@ export async function decisionMinutes(code:string,date:string,mode:"close"|"live
   const wanted=[...new Map([...peersWanted,...themePeersWanted].map(p=>[p.code,p])).keys()];
   const outcomes=new Map<string,PromiseSettledResult<{bars:Bar[];fetchedAt:string}>>();
   for(let i=0;i<wanted.length;i+=6){const batch=wanted.slice(i,i+6),results=await Promise.allSettled(batch.map(fetchMinutes));results.forEach((r,j)=>outcomes.set(batch[j],r));}
-  const asPeer=(p:CoreStock,source:string):PeerSeries=>{const result=outcomes.get(p.code),base=references.get(p.code),error=result?.status==="rejected"?(result.reason instanceof Error?result.reason.message:`${source}分钟读取失败`):!base?"缺少当日前收盘价":undefined;if(error)warnings.push(`${p.name}：${error}`);return {code:p.code,name:p.name,preClose:base??0,bars:result?.status==="fulfilled"&&base?result.value.bars:[],error};};
+  const asPeer=(p:MinuteCore,source:string):PeerSeries=>{const result=outcomes.get(p.code),base=references.get(p.code),error=result?.status==="rejected"?(result.reason instanceof Error?result.reason.message:`${source}分钟读取失败`):!base?"缺少当日前收盘价":undefined;if(error)warnings.push(`${p.name}：${error}`);return {code:p.code,name:p.name,preClose:base??0,bars:result?.status==="fulfilled"&&base?result.value.bars:[],error};};
   const peers=peersWanted.map(p=>asPeer(p,"行业")),themePeers=themePeersWanted.map(p=>asPeer(p,"题材"));
   const [main]=await Promise.all([mainPromise,metadata]);
   if(!group)warnings.push("前一日未找到该股所属行业与核心评分，主线条件保持未知");

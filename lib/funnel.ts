@@ -1,4 +1,4 @@
-import { decisionData } from "./decision-data";
+import { decisionData, minuteBasis } from "./decision-data";
 import type { CoreStock, ScoredSector } from "./decision-engine";
 import { auditThemeRows } from "./theme-quality";
 import { themeOverview } from "./theme-data";
@@ -17,6 +17,7 @@ const scoreIndustry=(industry:ScoredSector)=>industry.qualification.status==="�
 
 export async function decisionFunnel(date:string,mode:"close"|"live"):Promise<FunnelOverview>{
   const [{overview:decision,days},themes]=await Promise.all([decisionData(date,mode),themeOverview(date,mode)]);
+  if(mode==="close")await minuteBasis(date,days);
   const day=days.at(-1)!;
   const shortlist=themes.themes.filter(t=>t.kind==="题材"&&["主线初筛","主线候选","待梯队核验"].includes(t.label)).slice(0,8);
   const warnings=["题材只核对强度靠前的至多8个候选；未匹配不等于个股没有题材归属。收盘候选只能用于盘后复盘，不能回填为当时盘中已知名单。"];
