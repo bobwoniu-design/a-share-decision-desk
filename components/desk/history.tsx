@@ -50,7 +50,7 @@ export function HistoricalMarket({view,navigation,onNavigationChange,onSelectSto
         expandedCode={stockOpen?code:null} expandedSource={expandedSource}
         onSelect={c=>openStock({code:c.code,themeCode:c.theme?.code,selectedStock:{code:c.code,name:c.name}},"candidate")}
         onSelectPersonal={p=>openStock({code:p.code,themeCode:undefined,selectedStock:{code:p.code,name:p.name}},"personal")}
-        onLookup={q=>openStock({code:q,themeCode:undefined,selectedStock:{code:q,name:q}},"external",false)}
+        onLookup={s=>openStock({code:s.code,themeCode:undefined,selectedStock:{code:s.code,name:s.name}},"external")}
         renderDetails={c=><SelectionStockDetail key={`${date}:${c.code}:${c.theme?.code??""}`} stock={stock?.code===c.code?stock:{code:c.code,name:c.name}} candidate={c} date={date} mode={mode} themeCode={c.theme?.code} onClose={()=>setStockOpen(false)}/>}
         renderPersonalDetails={p=><SelectionStockDetail key={`${date}:${p.code}`} stock={{code:p.code,name:p.name}} date={date} mode={mode} onClose={()=>setStockOpen(false)}/>}
       />

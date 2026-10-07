@@ -1384,6 +1384,9 @@ input[type="datetime-local"] {
 .funnel-secondary-filters label,.funnel-secondary-filters form{display:flex;align-items:center;gap:7px}
 .funnel-secondary-filters select,.funnel-secondary-filters input{background:#111d30;border:1px solid #344963;border-radius:5px;color:#e1edfc;padding:7px 9px;font-size:13px}
 .funnel-secondary-filters input{width:165px;max-width:48vw}
+.funnel-secondary-filters form{flex-wrap:wrap;justify-content:flex-end}
+.funnel-secondary-filters form input{width:190px}
+.funnel-lookup-message{margin:0;padding:8px 12px;color:#c5dcfa;font-size:13px;border-bottom:1px solid #283b54}
 .selection-expanded-row>td{padding:0!important;text-align:left!important;white-space:normal;background:#101d2e}
 .selection-standalone-detail{border:1px solid #466286;border-radius:8px;overflow:hidden}
 .stock-detail-content{display:flex;flex-direction:column;gap:12px;min-width:0}
