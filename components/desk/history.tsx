@@ -47,11 +47,13 @@ export function HistoricalMarket({view,navigation,onNavigationChange,onSelectSto
 }
 
 function SelectionStockDetail({stock,candidate,date,mode,themeCode,onClose}:{stock:HistoryStock;candidate?:FunnelCandidate;date:string;mode:"close"|"live";themeCode?:string;onClose:()=>void}){
+  const [minuteDate,setMinuteDate]=useState(date);
+  const minuteLive=mode==="live"&&minuteDate===date;
   return <div className="stock-detail-content" role="region" aria-label={`${stock.name}详情`}>
     <div className="selection-detail-heading"><span>{date} · {mode==="live"?"盘中监测":"历史复盘"}</span><button className="text-link" onClick={onClose}>收起详情</button></div>
     {candidate&&<section className="stock-detail-section"><CandidateExplanation candidate={candidate}/></section>}
-    <section className="stock-detail-section"><InstrumentHistory fixedMode="minute" stock={stock} date={date} live={mode==="live"} minutes={(s,d,showChart)=><MinuteDecision key={`${s?.code}${d}${mode}${themeCode??""}`} stock={s} date={d} showChart={showChart} mode={mode} themeCode={themeCode}/>}/></section>
-    <DeferredDetailSection label="日K走势"><InstrumentHistory fixedMode="daily" stock={stock} date={date} live={mode==="live"} minutes={()=>null}/></DeferredDetailSection>
+    <section className="stock-detail-section"><InstrumentHistory fixedMode="daily" stock={stock} date={date} live={mode==="live"} selectedMinuteDate={minuteDate} onDailyDateSelect={setMinuteDate} minutes={()=>null}/></section>
+    <DeferredDetailSection label="分时K线"><InstrumentHistory fixedMode="minute" stock={stock} date={date} live={minuteLive} selectedMinuteDate={minuteDate} onMinuteDateChange={setMinuteDate} minutes={(s,d,showChart)=><MinuteDecision key={`${s?.code}${d}${minuteLive}${themeCode??""}`} stock={s} date={d} showChart={showChart} mode={minuteLive?"live":"close"} themeCode={themeCode}/>}/></DeferredDetailSection>
     <DeferredDetailSection label="核心度"><CoreProfile stock={stock} date={date} mode={mode}/></DeferredDetailSection>
     {mode==="close"&&<DeferredDetailSection label="历史检验"><ValidationPanel key={`${stock.code}:${themeCode??""}:${date}`} code={stock.code} date={date} themeCode={themeCode}/></DeferredDetailSection>}
   </div>;

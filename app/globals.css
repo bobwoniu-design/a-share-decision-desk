@@ -1362,6 +1362,9 @@ input[type="datetime-local"] {
 .selection-expanded-row .stock-detail-content,.selection-standalone-detail .stock-detail-content{padding:12px;border-top:1px solid #45658b}
 .selection-detail-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;color:#94abc9;font-size:12px}
 .stock-detail-section{min-width:0;border-top:1px solid #344a65;padding-top:12px}
+.stock-detail-section,.stock-detail-section .instrument-history,.stock-detail-section .minute-decision{width:100%;max-width:100%}
+.stock-detail-content .minute-chart-trigger .price-chart{width:100%;max-width:100%;height:auto;min-height:0;aspect-ratio:700/381;padding:4px}
+.daily-candle-svg.selectable{cursor:crosshair}
 .stock-detail-section:first-of-type{border-top:0;padding-top:0}
 .stock-detail-deferred{min-height:46px;margin:0;padding:8px 2px;color:#92a9c7;font-size:12px}
 .stock-detail-content .panel,.stock-detail-content .core-profile{border:0;border-radius:0;background:transparent}

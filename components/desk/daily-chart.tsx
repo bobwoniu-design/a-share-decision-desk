@@ -2,9 +2,9 @@
 import { useState } from "react";
 import type { DailyHistory } from "@/lib/market-data";
 const price=(v:number|null|undefined)=>v==null?"—":v.toFixed(2);
-export function DailyChart({data}:{data:DailyHistory}){
+export function DailyChart({data,selectedDate,onDateSelect}:{data:DailyHistory;selectedDate?:string;onDateSelect?:(date:string)=>void}){
   const [metric,setMetric]=useState<"amount"|"volume">("amount"),[hover,setHover]=useState<number|null>(null);
-  const points=data.dates.map(d=>data.points.find(p=>p.date===d)??null),lastIndex=points.findLastIndex(Boolean),index=hover??lastIndex,current=points[index];
+  const points=data.dates.map(d=>data.points.find(p=>p.date===d)??null),lastIndex=points.findLastIndex(Boolean),selectedIndex=selectedDate?data.dates.indexOf(selectedDate):-1,index=hover??(selectedIndex>=0?selectedIndex:lastIndex),current=points[index];
   const ohlc=points.map(p=>p?{open:data.adjusted?p.adjustedOpen!:p.open,high:data.adjusted?p.adjustedHigh!:p.high,low:data.adjusted?p.adjustedLow!:p.low,close:data.adjusted?p.adjustedClose!:p.close}:null);
   const valid=ohlc.filter(p=>p!==null),min=Math.min(...valid.map(p=>p.low)),max=Math.max(...valid.map(p=>p.high)),pad=Math.max((max-min)*.06,.01),lo=min-pad,hi=max+pad;
   const left=55,right=742,width=right-left,step=width/Math.max(points.length,1),x=(i:number)=>left+(i+.5)*step,y=(v:number)=>20+(hi-v)/(hi-lo)*190;
@@ -13,12 +13,13 @@ export function DailyChart({data}:{data:DailyHistory}){
   const path=(values:(number|null)[],scale:(n:number)=>number)=>values.map((v,i)=>v===null?"":`${i&&values[i-1]!==null?"L":"M"}${x(i)},${scale(v)}`).join(" ");
   const gaps:{start:number;end:number;status:string}[]=[];
   points.forEach((p,i)=>{if(p)return;const status=data.suspendedDates.includes(data.dates[i])?"停牌":"数据缺失";const previous=gaps.at(-1);if(previous&&previous.end===i-1&&previous.status===status)previous.end=i;else gaps.push({start:i,end:i,status});});
-  const handleMove=(event:React.PointerEvent<SVGSVGElement>)=>{const box=event.currentTarget.getBoundingClientRect();const position=(event.clientX-box.left)/box.width*800;setHover(Math.max(0,Math.min(points.length-1,Math.floor((position-left)/step))));};
+  const pointerIndex=(event:{clientX:number;currentTarget:SVGSVGElement})=>{const box=event.currentTarget.getBoundingClientRect();const position=(event.clientX-box.left)/box.width*800;return Math.max(0,Math.min(points.length-1,Math.floor((position-left)/step)));};
+  const selectIndex=(candidate:number)=>{if(points[candidate])onDateSelect?.(data.dates[candidate]);};
   const candle=ohlc[index];
   return <div className="daily-chart">
     <div className="kline-inspector" aria-live="polite"><b>{data.dates[index]}</b>{current&&candle?<><span>开 {price(candle.open)}</span><span>高 {price(candle.high)}</span><span>低 {price(candle.low)}</span><span>收 {price(candle.close)}</span><span>额 {current.amountYi.toFixed(2)}亿</span><span>较前5日均额 {current.amountRatio5?.toFixed(2)??"—"}倍</span></>:<span>{data.suspendedDates.includes(data.dates[index])?"全天停牌，无成交":"没有行情，未填补价格或成交额"}</span>}</div>
     <div className="kline-tools"><span>{data.adjusted?"前复权日K":"未复权日K"} <i className="ma-five"/>MA5 <i className="ma-twenty"/>MA20</span><div className="history-switch"><button aria-pressed={metric==="amount"} className={metric==="amount"?"active":""} onClick={()=>setMetric("amount")}>成交额</button><button aria-pressed={metric==="volume"} className={metric==="volume"?"active":""} onClick={()=>setMetric("volume")}>成交量</button></div></div>
-    <svg viewBox="0 0 800 335" className="daily-candle-svg" role="img" tabIndex={0} aria-label="60个交易日日K线与成交柱。左右方向键逐日查看；上方显示对应日期开高低收与成交额。" onPointerMove={handleMove} onPointerLeave={()=>setHover(null)} onKeyDown={e=>{if(["ArrowLeft","ArrowRight","Home","End"].includes(e.key)){e.preventDefault();setHover(e.key==="Home"?0:e.key==="End"?points.length-1:Math.max(0,Math.min(points.length-1,index+(e.key==="ArrowRight"?1:-1))));}}}>
+    <svg viewBox="0 0 800 335" className={`daily-candle-svg${onDateSelect?" selectable":""}`} role="img" tabIndex={0} aria-label={`60个交易日日K线与成交柱。左右方向键逐日查看；${onDateSelect?"点击蜡烛或按回车键切换下方对应日期的分时图。":"上方显示对应日期开高低收与成交额。"}`} onPointerMove={e=>setHover(pointerIndex(e))} onPointerLeave={()=>setHover(null)} onClick={e=>onDateSelect&&selectIndex(pointerIndex(e))} onKeyDown={e=>{if(["ArrowLeft","ArrowRight","Home","End"].includes(e.key)){e.preventDefault();setHover(e.key==="Home"?0:e.key==="End"?points.length-1:Math.max(0,Math.min(points.length-1,index+(e.key==="ArrowRight"?1:-1))));}else if(onDateSelect&&["Enter"," "].includes(e.key)){e.preventDefault();selectIndex(index);}}}>
       {[0,1,2,3].map(i=>{const v=lo+(hi-lo)*i/3;return <g key={i}><line x1={left} x2={right} y1={y(v)} y2={y(v)} stroke="#26344b"/><text x={left-7} y={y(v)+4} textAnchor="end" fill="#91a4bf" fontSize="12">{v.toFixed(2)}</text></g>;})}
       {gaps.map(g=><g key={g.start}><rect x={left+g.start*step} y="14" width={(g.end-g.start+1)*step} height="292" fill="#b69b64" opacity=".075"/>{g.end-g.start>=2&&<text x={x((g.start+g.end)/2)} y="118" textAnchor="middle" fill="#c3ad83" fontSize="12">{g.status} {g.end-g.start+1}日</text>}<title>{`${data.dates[g.start]} 至 ${data.dates[g.end]}：${g.status}，${g.end-g.start+1} 个交易日`}</title></g>)}
       {ohlc.map((p,i)=>{if(!p)return null;const color=p.close>=p.open?"#f17d86":"#57c3a5",bodyTop=y(Math.max(p.open,p.close)),bodyBottom=y(Math.min(p.open,p.close));return <g key={data.dates[i]}><line x1={x(i)} x2={x(i)} y1={y(p.high)} y2={y(p.low)} stroke={color}/><rect x={x(i)-step*.3} y={bodyTop} width={step*.6} height={Math.max(1,bodyBottom-bodyTop)} fill={color}/></g>;})}
@@ -29,7 +30,8 @@ export function DailyChart({data}:{data:DailyHistory}){
       <path d={path(ma5,barY)} fill="none" stroke="#dce7f6" strokeWidth="1.2"/><line x1={left} x2={right} y1="305" y2="305" stroke="#36445a"/>
       {data.dates.map((d,i)=>(i%12===0||i===points.length-1)&&<text key={d} x={x(i)} y="326" textAnchor="middle" fill="#91a4bf" fontSize="12">{d.slice(5)}</text>)}
       {index>=0&&<line x1={x(index)} x2={x(index)} y1="15" y2="306" stroke="#92a6c4" strokeDasharray="3 4" opacity=".65"/>}
+      {selectedIndex>=0&&selectedIndex!==index&&<line x1={x(selectedIndex)} x2={x(selectedIndex)} y1="15" y2="306" stroke="#83baff" strokeDasharray="2 4" opacity=".9"/>}
     </svg>
-    <div className="chart-footnote"><span>红：收≥开 · 绿：收&lt;开 · 柱与K线同色</span><span>成交额反映活跃度，不等于资金净流入</span></div>
+    <div className="chart-footnote"><span>红：收≥开 · 绿：收&lt;开 · 柱与K线同色</span><span>{onDateSelect?"点击蜡烛切换下方分时 · ":""}成交额反映活跃度，不等于资金净流入</span></div>
   </div>;
 }
