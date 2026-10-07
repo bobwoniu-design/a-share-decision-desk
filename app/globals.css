@@ -1596,3 +1596,10 @@ input[type="datetime-local"] {
 .watchlist-toggle:focus-visible{outline:2px solid #91bcf1;outline-offset:2px}
 .personal-row-actions{display:flex;align-items:center;justify-content:flex-end;gap:12px;white-space:nowrap}
 .board-mini-cell .funnel-candle-trigger{display:inline-flex}
+.funnel-market-note{display:flex;align-items:center;gap:9px;margin-left:auto;color:#9eb4d0;font-size:12px;line-height:1.4}
+.funnel-market-note b{color:#e2ca86;font-size:13px;white-space:nowrap}
+.funnel-market-note span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:510px}
+.board-selection-status{display:inline-block;padding:3px 8px;border:1px solid #425773;border-radius:4px;color:#9eb2ce;font-size:12px;white-space:nowrap}
+.board-selection-status.active{border-color:#568e78;background:#19382f;color:#a5e5c6}
+.board-expanded-tools{display:flex;justify-content:flex-end;padding:10px 16px 0}
+@media(max-width:850px){.funnel-market-note{width:100%;margin:3px 0 0}.funnel-market-note span{max-width:calc(100% - 80px)}}
