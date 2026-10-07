@@ -48,6 +48,9 @@ async function targetsFor(date:string){
   const held=new Set(positions.map(p=>p.code));
   const targets=new Map<string,ScanTarget>();
   candidates.forEach(c=>targets.set(c.code,{code:c.code,name:c.name,theme:c.theme?.code??"",held:held.has(c.code)}));
+  ledger?.watchlist?.forEach(stock=>{
+    if(stockCode.test(stock.code)&&!targets.has(stock.code))targets.set(stock.code,{code:stock.code,name:stock.name,theme:"",held:held.has(stock.code)});
+  });
   positions.forEach(p=>{if(!targets.has(p.code))targets.set(p.code,{code:p.code,name:p.name,theme:"",held:true});});
   return {basisDate,targets:[...targets.values()],reason:""};
 }

@@ -1,4 +1,4 @@
-#requires -RunAsAdministrator
+﻿#requires -RunAsAdministrator
 $ErrorActionPreference = 'Stop'
 
 $sourceScript = Join-Path $PSScriptRoot 'scanner.py'
@@ -8,9 +8,9 @@ $configPath = Join-Path $installDir 'config.json'
 $siteUrl = 'https://a-share-decision-desk.bobzhou198.chatgpt.site'
 
 if (Get-Command py -ErrorAction SilentlyContinue) {
-    $python = & py -3 -c 'import sys; print(sys.executable)' 2>$null | Select-Object -First 1
+    $python = & py -3 -c 'import sys; print(sys.executable)' 2>$null
 } elseif (Get-Command python -ErrorAction SilentlyContinue) {
-    $python = & python -c 'import sys; print(sys.executable)' 2>$null | Select-Object -First 1
+    $python = & python -c 'import sys; print(sys.executable)' 2>$null
 } else {
     throw '请先安装 Python 3。'
 }
