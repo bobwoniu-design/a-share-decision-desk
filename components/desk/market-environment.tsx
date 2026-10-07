@@ -1,6 +1,5 @@
 "use client";
 import {useMemo,useState} from "react";
-import {useDecision} from "./decision";
 import {marketValidationFromSummaries} from "@/lib/market-validation";
 import type {DecisionOverview} from "@/lib/decision-engine";
 import type {MarketIndexHistory} from "@/lib/tushare";
@@ -8,9 +7,20 @@ import type {MarketIndexHistory} from "@/lib/tushare";
 const fmt=(value:number|null|undefined,digits=0)=>value==null?"—":value.toLocaleString("zh-CN",{minimumFractionDigits:digits,maximumFractionDigits:digits});
 const signed=(value:number|null|undefined,digits=2)=>value==null?"—":`${value>=0?"+":""}${fmt(value,digits)}%`;
 
-export function MarketEnvironment({date,data,onDate}:{date:string;data:DecisionOverview|null;onDate:(date:string)=>void}){
+export function MarketIndexMini({history,busy,error,onOpen}:{history:MarketIndexHistory|null;busy:boolean;error:string;onOpen:()=>void}){
+  const points=history?.points.slice(-20)??[];
+  const lo=points.length?Math.min(...points.map(p=>p.low)):0;
+  const hi=points.length?Math.max(...points.map(p=>p.high)):1;
+  const range=Math.max(hi-lo,1);
+  const y=(value:number)=>5+(hi-value)/range*48;
+  return <button type="button" className="market-index-mini" onClick={onOpen} aria-label="放大查看上证综指日K线、市场情绪与历史检验" aria-haspopup="dialog">
+    <span><b>上证综指 · 近20日</b><em>点击放大 ↗</em></span>
+    {points.length?<svg viewBox="0 0 240 60" role="img" aria-label="上证综指近20日K线缩略图">{points.map((p,i)=>{const x=7+i*12;const color=p.close>=p.open?"#f17d86":"#57c3a5";return <g key={p.date}><line x1={x} x2={x} y1={y(p.high)} y2={y(p.low)} stroke={color} strokeWidth="1.2"/><rect x={x-3} y={y(Math.max(p.open,p.close))} width="6" height={Math.max(2,y(Math.min(p.open,p.close))-y(Math.max(p.open,p.close)))} fill={color}/></g>;})}</svg>:<small>{busy?"指数K线读取中…":error?"指数暂不可用，点击重试":"指数数据待载入"}</small>}
+  </button>;
+}
+
+export function MarketEnvironment({date,data,onDate,index}:{date:string;data:DecisionOverview|null;onDate:(date:string)=>void;index:{data:MarketIndexHistory|null;busy:boolean;error:string;retry:()=>void}}){
   const [windowDays,setWindowDays]=useState<7|20>(20),[selected,setSelected]=useState<string|null>(null),[hover,setHover]=useState<string|null>(null);
-  const index=useDecision<MarketIndexHistory>(`/api/market/index-history?date=${date}`);
   const scoreMap=useMemo(()=>new Map(data?.market.history.map(h=>[h.date,h])??[]),[data]);
   const dayMap=useMemo(()=>new Map(data?.marketDays.map(d=>[d.date,d])??[]),[data]);
   const dates=(data?.marketDays.map(d=>d.date)??index.data?.dates??[]).slice(-windowDays);
@@ -35,8 +45,8 @@ export function MarketEnvironment({date,data,onDate}:{date:string;data:DecisionO
   const activeIndex=index.data?.dates.findIndex(d=>d===activeDate)??-1;
   const onChartMove=(event:React.PointerEvent<SVGSVGElement>)=>{if(!index.data||!candles.length)return;const box=event.currentTarget.getBoundingClientRect(),point=(event.clientX-box.left)/box.width*1040;
     const i=Math.max(0,Math.min(candles.length-1,Math.floor((point-left)/step)));setHover(index.data.dates.filter(d=>dates.includes(d))[i]);};
-  return <section className="market-environment" aria-label="市场环境、指数K线与历史检验">
-    <div className="environment-heading"><div><b>市场环境 · 指数K线与情绪</b><small>上证综指 000001.SH · 指数价格与全市场情绪采用不同口径</small></div><div className="history-switch">{([7,20] as const).map(n=><button type="button" key={n} className={windowDays===n?"active":""} aria-pressed={windowDays===n} onClick={()=>{setWindowDays(n);setHover(null);setSelected(null);}}>近 {n} 个交易日</button>)}</div></div>
+  return <section className="market-environment" aria-label="指数K线、情绪与历史检验">
+    <div className="environment-heading"><div><b>指数K线 · 情绪对照</b><small>上证综指 000001.SH · 指数价格与全市场情绪采用不同口径</small></div><div className="history-switch">{([7,20] as const).map(n=><button type="button" key={n} className={windowDays===n?"active":""} aria-pressed={windowDays===n} onClick={()=>{setWindowDays(n);setHover(null);setSelected(null);}}>近 {n} 个交易日</button>)}</div></div>
     <div className="environment-summary"><div className="environment-score"><small>{activeDate} · {activeDate===date?"所选交易日":"历史交易日"}</small><strong>情绪 {fmt(activeScore?.score)}<em>/100</em></strong><span>{activeScore?.cycle??"待数据"} · {activeScore?.phase??"待数据"}</span>{activeDate!==date&&<button type="button" className="text-link" onClick={()=>onDate(activeDate)}>切换工作台至此日</button>}</div><div className="environment-metrics">{cards.map(([label,value,note])=><div key={label}><small>{label}</small><b>{value}</b><span>{note}</span></div>)}</div></div>
     <div className="environment-chart-head"><div><b>上证综指 日K</b><span>{indexPoint?`${fmt(indexPoint.close,2)} 点 · ${signed(indexPoint.pct)}`:"将鼠标移到K线上查看当日"}</span></div><small>{indexPoint?`开 ${fmt(indexPoint.open,2)} · 高 ${fmt(indexPoint.high,2)} · 低 ${fmt(indexPoint.low,2)} · 收 ${fmt(indexPoint.close,2)}`:"红涨绿跌 · 下方蓝线为市场情绪评分"}</small></div>
     {index.busy?<p className="history-small-empty" role="status">正在读取一次上证综指日线，指标和评分已可查看…</p>:index.error?<p className="history-small-empty" role="alert">指数K线暂不可用：{index.error} <button type="button" className="text-link" onClick={index.retry}>重试</button>。上方市场指标和检验仍可使用。</p>:index.data&&candles.length>0&&<svg className="environment-candle-svg" viewBox="0 0 1040 382" role="img" tabIndex={0} aria-label="上证综指日K线及市场情绪评分。左右方向键逐日查看，上方指标卡随日期变化。" onPointerMove={onChartMove} onPointerLeave={()=>setHover(null)} onClick={()=>{if(hover)setSelected(hover);}} onKeyDown={e=>{if(!["ArrowLeft","ArrowRight","Home","End"].includes(e.key))return;e.preventDefault();const all=index.data!.dates.filter(d=>dates.includes(d)),current=all.indexOf(activeDate),next=e.key==="Home"?0:e.key==="End"?all.length-1:Math.max(0,Math.min(all.length-1,current+(e.key==="ArrowRight"?1:-1)));setSelected(all[next]);setHover(null);}}>

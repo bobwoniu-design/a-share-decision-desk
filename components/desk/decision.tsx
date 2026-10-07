@@ -8,6 +8,8 @@ import {PHASES,chinaNow,liveSession,minuteFresh,minuteEngine,sectorMinuteEngine,
 import type {DecisionOverview,Factor,ScoredSector,CoreStock} from "@/lib/decision-engine";
 import type {MinuteBundle} from "@/lib/decision-data";
 import type {HistoryStock} from "./history-charts";
+import type {MarketIndexHistory} from "@/lib/tushare";
+import {MarketEnvironment,MarketIndexMini} from "./market-environment";
 
 const localDecisionCache=new Map<string,{until:number;value:unknown}>();
 export function useDecision<T>(url:string|null,live=false){
@@ -35,18 +37,21 @@ const number=(v:number|null|undefined,n=0)=>v==null?"—":v.toFixed(n);
 export function PhaseTag({phase}:{phase:string}){return <span className={`phase-tag phase-${["转弱","退潮","逻辑失效"].includes(phase)?"risk":["承接","转强","加速","一致"].includes(phase)?"positive":"neutral"}`}>{phase}</span>;}
 export function Factors({factors}:{factors:Factor[]}){return <div className="factor-list">{factors.map(f=><div key={f.name}><label>{f.name}<small>权重 {f.weight}%</small></label><div className="factor-bar"><i style={{width:`${f.score??0}%`}}/></div><b>{number(f.score)}</b><span>{f.detail}</span></div>)}</div>;}
 function Timeline({items}:{items:Transition[]}){return items.length?<ol className="decision-timeline">{items.slice().reverse().map((e,i)=><li key={`${e.time}-${i}`}><time>{e.time}</time><b>{e.from} → {e.to}</b><span>{e.reason}</span></li>)}</ol>:<p className="history-caption">当前时点之前尚无状态变化。</p>;}
-export function DecisionHeader({data,error,busy,retry}:{data:DecisionOverview|null;error:string;busy:boolean;retry:()=>void}){
-  const [scoreOpen,setScoreOpen]=useState(false);
+export function DecisionHeader({data,error,busy,retry,onDate}:{data:DecisionOverview|null;error:string;busy:boolean;retry:()=>void;onDate?:(date:string)=>void}){
+  const [scoreOpen,setScoreOpen]=useState(false),[chartOpen,setChartOpen]=useState(false);
+  const index=useDecision<MarketIndexHistory>(data?.mode==="close"?`/api/market/index-history?date=${data.date}`:null);
   const m=data?.market;
+  const latest=data?.marketDays.at(-1);
   return <section className="decision-header" aria-label="短线决策链">
     <div className="decision-flow"><b>决策引擎</b><span>市场情绪 → 题材 / 行业 → 核心股 → 分钟状态 → 条件核对 → 人工决策</span><small>P0.3 · 规则分</small></div>
     {busy?<p className="history-small-empty" role="status">正在计算近20个交易日的市场、板块与核心度…</p>:error?<p className="error-banner" role="alert">{error} <button className="text-link" onClick={retry}>重试评分</button></p>:data&&m&&<>
       <div className="market-decision">
-        <div className="emotion-score"><small>市场情绪分</small><button type="button" className="market-score-trigger" onClick={()=>setScoreOpen(true)} aria-label={`市场情绪 ${number(m.score)} 分，查看评分详情`} aria-haspopup="dialog" aria-expanded={scoreOpen}><strong>{number(m.score)}<em>/100</em></strong><span>点击查看评分详情</span></button><span className={(m.delta??0)<0?"down":"up"}>{(m.delta??0)<0?"↓":"↑"} {sign(m.delta)} 较前交易日</span></div>
-        <button type="button" className="market-axis-summary" onClick={()=>setScoreOpen(true)} aria-label="查看市场情绪四维评分详情" aria-haspopup="dialog" aria-expanded={scoreOpen}><span className="market-column-label">四维评分详情 <span aria-hidden="true">↗</span></span><span className="market-axis-grid">{m.axes.map(axis=><span className="market-axis-item" key={axis.name}><span>{axis.name}</span><b>{number(axis.score)}</b><i><em style={{width:`${axis.score??0}%`}}/></i></span>)}</span></button>
+        <div className="emotion-score"><small>市场情绪分</small><button type="button" className="market-score-trigger" onClick={()=>setScoreOpen(true)} aria-label={`市场情绪 ${number(m.score)} 分，查看评分详情`} aria-haspopup="dialog" aria-expanded={scoreOpen}><strong>{number(m.score)}<em>/100</em></strong><span>点击查看评分详情</span></button><span className={(m.delta??0)<0?"down":"up"}>{(m.delta??0)<0?"↓":"↑"} {sign(m.delta)} 较前交易日</span><div className="market-amount"><small>沪深A股成交额</small><b>{latest?`${latest.amountYi.toLocaleString("zh-CN",{maximumFractionDigits:1})} 亿`:"—"}</b></div>{data.mode==="close"&&<MarketIndexMini history={index.data} busy={index.busy} error={index.error} onOpen={()=>setChartOpen(true)}/>}</div>
+        <button type="button" className="market-axis-summary" onClick={()=>setScoreOpen(true)} aria-label="查看市场情绪四维评分详情" aria-haspopup="dialog" aria-expanded={scoreOpen}><span className="market-column-label">四维评分依据 <span aria-hidden="true">↗</span></span><span className="market-axis-grid">{m.axes.map(axis=><span className="market-axis-item" key={axis.name}><span>{axis.name}</span><b>{number(axis.score)}</b><i><em style={{width:`${axis.score??0}%`}}/></i><small>{axis.name==="赚钱广度"&&latest?`上涨 ${latest.up} / 下跌 ${latest.down}`:axis.detail}</small></span>)}</span></button>
         <div className="market-verdict"><small className="market-column-label">当前阶段与判断</small><div><b>{m.previousCycle&&m.previousCycle!==m.cycle?`${m.previousCycle} → `:""}{m.cycle}</b><PhaseTag phase={m.phase}/><span>赚钱效应：{m.earning}</span><span>高位风险：<strong className={m.risk==="高"?"down":"amber-text"}>{m.risk}</strong></span></div><p>{m.posture}</p>{data.mode==="live"&&<p className="market-caution">警惕：{m.playbook.avoid}</p>}<small>{data.asOf} · {data.mode==="live"?"盘中快照评分":"收盘阶段"} · 晋级 {number(m.promotion.value,1)}%（{m.promotion.advanced}/{m.promotion.total}） · 昨高位溢价 {number(m.highPremium.value,2)}%</small></div>
       </div>
       <Dialog open={scoreOpen} onOpenChange={setScoreOpen}><DialogContent className="dialog-body market-score-dialog sm:max-w-4xl"><DialogHeader><DialogTitle>市场情绪评分详情 · {data.date}</DialogTitle><DialogDescription>{data.mode==="live"?"盘中快照规则分，随数据更新。":"所选日期收盘规则分，不回填盘中判断。"}</DialogDescription></DialogHeader><MarketScoreMethod data={data}/></DialogContent></Dialog>
+      {data.mode==="close"&&<Dialog open={chartOpen} onOpenChange={setChartOpen}><DialogContent className="dialog-body market-chart-dialog sm:max-w-6xl"><DialogHeader><DialogTitle>上证综指 K线与市场情绪 · {data.date}</DialogTitle><DialogDescription>价格与情绪分采用独立口径。指向K线可查看对应日期指标。</DialogDescription></DialogHeader><MarketEnvironment date={data.date} data={data} onDate={date=>{setChartOpen(false);onDate?.(date);}} index={index}/></DialogContent></Dialog>}
       {data.mode==="live"&&<details className="engine-method"><summary>盘中实际采集时间线 · {data.intraday?.observations??0} 次</summary><p>{data.intraday?.status??"盘中快照尚未采集"}；当前阶段：<PhaseTag phase={data.intraday?.phase??"待数据"}/></p><ol className="decision-timeline">{data.intraday?.timeline.map(t=><li key={t.time}><time>{t.time}</time><b>{t.phase} · {number(t.score)}</b><span>{t.reason}</span></li>)}</ol></details>}
     </>}
   </section>;

@@ -8,7 +8,6 @@ import type {DecisionOverview} from "@/lib/decision-engine";
 import {chinaNow} from "@/lib/minute-engine";
 import { calculate } from "@/lib/ledger";
 import { InstrumentHistory, type HistoryStock } from "./history-charts";
-import { MarketEnvironment } from "./market-environment";
 import { SectorBrowser } from "./sector-browser";
 import { ThemeBrowser } from "./theme-browser";
 import { FunnelBrowser } from "./funnel-browser";
@@ -26,8 +25,8 @@ export function HistoricalMarket({view,navigation,onNavigationChange,onSelectSto
   return <div className="compact-desk">
     <div className="history-bar"><div><span className="mode-badge">TUSHARE · {mode==="live"?"盘中监测":"历史复盘"}</span><b>{date}</b><span className="muted">{view==="selection"?"候选与个股按需读取":decision.busy?"正在加载…":decision.data?`${decision.data.marketDays.at(-1)?.total??"—"} 只日线已载入`:"数据未载入"}</span></div><div><button className={`button ${mode==="live"?"primary":""}`} onClick={()=>update({mode:"live",date:chinaNow().date,selectedStock:undefined})}>今日盘中</button><button className={`button ${mode==="close"?"primary":""}`} onClick={()=>update({mode:"close",selectedStock:undefined})}>历史复盘</button><label htmlFor="market-date">交易日期</label><input id="market-date" type="date" value={date} onInput={e=>{if(e.currentTarget.value)update({mode:"close",date:e.currentTarget.value,selectedStock:undefined});}}/><button className="button" disabled={decision.busy} onClick={decision.retry}><RefreshCw size={14}/>重新读取</button></div></div>
     {view==="overview"&&<>
-      <DecisionHeader {...decision}/>
-      {mode==="close"&&<><MarketEnvironment key={date} date={date} data={decision.data} onDate={d=>update({mode:"close",date:d,selectedStock:undefined})}/><details className="market-board-evidence"><summary>打板证据 · 连板天梯与最强板块</summary><MarketEvidence data={decision.data}/></details></>}
+      <DecisionHeader {...decision} onDate={d=>update({mode:"close",date:d,selectedStock:undefined})}/>
+      {mode==="close"&&<details className="market-board-evidence"><summary>打板证据 · 连板天梯与最强板块</summary><MarketEvidence data={decision.data}/></details>}
       <div className="market-dimension-tabs" aria-label="市场总览维度"><button aria-pressed={dimension==="theme"} className={dimension==="theme"?"active":""} onClick={()=>setDimension("theme")}>题材主线</button><button aria-pressed={dimension==="industry"} className={dimension==="industry"?"active":""} onClick={()=>setDimension("industry")}>行业板块</button><span>两个来源独立排名，分数不跨维度比较</span></div>
       {dimension==="theme"?<ThemeBrowser date={date} mode={mode} onSelect={(s,themeCode)=>{update({code:s.code,themeCode,selectedStock:{code:s.code,name:s.name,preClose:s.quote?.preClose}});onSelectStock();}}/>:<SectorBrowser date={date} code={code} mode={mode} scored={decision.data?.sectors} onSelect={s=>{update({code:s.code,themeCode:undefined,selectedStock:{code:s.code,name:s.name,preClose:s.quote?.preClose}});onSelectStock();}}/>}
     </>}
