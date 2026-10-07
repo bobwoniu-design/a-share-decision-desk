@@ -1,5 +1,5 @@
 "use client";
-import { Fragment, useState } from "react";
+import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
 import { RefreshCw } from "lucide-react";
 import { Panel } from "./workspace";
 import { useDesk } from "./provider";
@@ -47,14 +47,25 @@ export function HistoricalMarket({view,navigation,onNavigationChange,onSelectSto
 }
 
 function SelectionStockDetail({stock,candidate,date,mode,themeCode,onClose}:{stock:HistoryStock;candidate?:FunnelCandidate;date:string;mode:"close"|"live";themeCode?:string;onClose:()=>void}){
-  type DetailTab="basis"|"minute"|"daily"|"core"|"validation";
-  const [tab,setTab]=useState<DetailTab>(candidate?"basis":"minute");
-  const tabs:[DetailTab,string][]=[...(candidate?[["basis","观察依据"] as [DetailTab,string]]:[]),["minute",mode==="live"?"实时分时":"分时决策"],["daily","日K走势"],["core","核心度"],...(mode==="close"?[["validation","历史检验"] as [DetailTab,string]]:[])];
-  return <div className="stock-detail-content"><div className="selection-detail-heading"><div><b>{stock.name}</b><span>{stock.code} · {date} · {mode==="live"?"盘中监测":"历史复盘"}</span></div><button className="text-link" onClick={onClose}>收起详情</button></div><nav className="stock-detail-tabs" aria-label={`${stock.name}详情页签`}>{tabs.map(([id,label])=><button key={id} type="button" className={tab===id?"active":""} aria-current={tab===id?"page":undefined} onClick={()=>setTab(id)}>{label}</button>)}</nav><div className="stock-detail-tab-panel" role="region" aria-label={tabs.find(([id])=>id===tab)?.[1]}>
-    {tab==="basis"&&candidate&&<CandidateExplanation candidate={candidate}/>}
-    {tab==="minute"&&<InstrumentHistory fixedMode="minute" stock={stock} date={date} live={mode==="live"} minutes={(s,d,showChart)=><MinuteDecision key={`${s?.code}${d}${mode}${themeCode??""}`} stock={s} date={d} showChart={showChart} mode={mode} themeCode={themeCode}/>}/>}
-    {tab==="daily"&&<InstrumentHistory fixedMode="daily" stock={stock} date={date} live={mode==="live"} minutes={()=>null}/>}
-    {tab==="core"&&<CoreProfile stock={stock} date={date} mode={mode}/>}
-    {tab==="validation"&&mode==="close"&&<ValidationPanel key={`${stock.code}:${themeCode??""}:${date}`} code={stock.code} date={date} themeCode={themeCode}/>}
-  </div></div>;
+  return <div className="stock-detail-content" role="region" aria-label={`${stock.name}详情`}>
+    <div className="selection-detail-heading"><span>{date} · {mode==="live"?"盘中监测":"历史复盘"}</span><button className="text-link" onClick={onClose}>收起详情</button></div>
+    {candidate&&<section className="stock-detail-section"><CandidateExplanation candidate={candidate}/></section>}
+    <section className="stock-detail-section"><InstrumentHistory fixedMode="minute" stock={stock} date={date} live={mode==="live"} minutes={(s,d,showChart)=><MinuteDecision key={`${s?.code}${d}${mode}${themeCode??""}`} stock={s} date={d} showChart={showChart} mode={mode} themeCode={themeCode}/>}/></section>
+    <DeferredDetailSection label="日K走势"><InstrumentHistory fixedMode="daily" stock={stock} date={date} live={mode==="live"} minutes={()=>null}/></DeferredDetailSection>
+    <DeferredDetailSection label="核心度"><CoreProfile stock={stock} date={date} mode={mode}/></DeferredDetailSection>
+    {mode==="close"&&<DeferredDetailSection label="历史检验"><ValidationPanel key={`${stock.code}:${themeCode??""}:${date}`} code={stock.code} date={date} themeCode={themeCode}/></DeferredDetailSection>}
+  </div>;
+}
+
+function DeferredDetailSection({label,children}:{label:string;children:ReactNode}){
+  const [visible,setVisible]=useState(false);
+  const section=useRef<HTMLElement>(null);
+  useEffect(()=>{
+    if(visible||!section.current)return;
+    if(typeof IntersectionObserver==="undefined"){setVisible(true);return;}
+    const observer=new IntersectionObserver(entries=>{if(entries.some(entry=>entry.isIntersecting)){setVisible(true);observer.disconnect();}},{rootMargin:"500px"});
+    observer.observe(section.current);
+    return ()=>observer.disconnect();
+  },[visible]);
+  return <section ref={section} className="stock-detail-section">{visible?children:<p className="stock-detail-deferred">{label} · 滚动到此处读取</p>}</section>;
 }
