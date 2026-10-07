@@ -7,7 +7,7 @@ import {InstrumentHistory} from "./history-charts";
 import {Dialog,DialogContent,DialogHeader,DialogTitle,DialogDescription} from "@/components/ui/dialog";
 import type {Candle} from "@/lib/candle-data";
 import type {FunnelCandidate,FunnelOverview} from "@/lib/funnel";
-import {CandidateEventHints,FunnelMinuteMonitor,FunnelValidationPanel} from "./funnel-extras";
+import {FunnelMinuteMonitor,FunnelValidationPanel} from "./funnel-extras";
 
 const filters=["全部","重点观察","条件观察","证据不足"] as const;
 const show=(n:number|null)=>n===null?"—":String(n);
@@ -36,5 +36,5 @@ export function FunnelBrowser({date,mode,expandedCode,onSelect,renderDetails}:{d
 }
 
 export function CandidateExplanation({candidate}:{candidate:FunnelCandidate}){
-  return <div className="funnel-explain"><div><b>为什么列入观察</b><span>{candidate.theme?`${candidate.theme.name} / ${candidate.theme.role}`:"本轮题材未匹配"} · {candidate.industry} / {candidate.industryLabel} · 题材基准 {candidate.basisDate}</span></div><p><b>入池路径：</b>{candidate.inclusionPaths.join("；")||"规则路径待核验"}</p><div className="funnel-explain-grid"><section><small>已有依据</small>{candidate.reasons.map(r=><p key={r}>{r}</p>)}</section><section><small>尚未满足 / 待核对</small>{candidate.missing.map(r=><p key={r}>{r}</p>)}</section><section><small>下一步观察条件</small>{candidate.triggers.map(r=><p key={r}>{r}</p>)}</section></div><p className="amber-text"><b>交易风险：</b>{candidate.risk.flags.join("；")||"未触发预设风险"} · 截至 {candidate.risk.asOf}</p><small>日线报价表明所选日有交易；盘中临停、盘口挂单和实际成交未由本项验证。</small>{candidate.themeMatches.length>1&&<small>同时匹配已核对题材：{candidate.themeMatches.join("、")}</small>}<CandidateEventHints code={candidate.code} date={candidate.risk.asOf.slice(0,10)}/></div>;
+  return <div className="funnel-explain"><div><b>为什么列入观察</b><span>{candidate.theme?`${candidate.theme.name} / ${candidate.theme.role}`:"本轮题材未匹配"} · {candidate.industry} / {candidate.industryLabel} · 题材基准 {candidate.basisDate}</span></div><p><b>入池路径：</b>{candidate.inclusionPaths.join("；")||"规则路径待核验"}</p><div className="funnel-explain-grid"><section><small>已有依据</small>{candidate.reasons.map(r=><p key={r}>{r}</p>)}</section><section><small>尚未满足 / 待核对</small>{candidate.missing.map(r=><p key={r}>{r}</p>)}</section><section><small>下一步观察条件</small>{candidate.triggers.map(r=><p key={r}>{r}</p>)}</section></div><p className="amber-text"><b>交易风险：</b>{candidate.risk.flags.join("；")||"未触发预设风险"} · 截至 {candidate.risk.asOf}</p><small>日线报价表明所选日有交易；盘中临停、盘口挂单和实际成交未由本项验证。</small>{candidate.themeMatches.length>1&&<small>同时匹配已核对题材：{candidate.themeMatches.join("、")}</small>}</div>;
 }

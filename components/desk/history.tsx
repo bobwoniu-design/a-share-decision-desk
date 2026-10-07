@@ -12,6 +12,7 @@ import { SectorBrowser } from "./sector-browser";
 import { ThemeBrowser } from "./theme-browser";
 import { FunnelBrowser } from "./funnel-browser";
 import { CandidateExplanation } from "./funnel-browser";
+import { StockResearch } from "./stock-research";
 import { BoardBrowser } from "./board-browser";
 import { ValidationPanel } from "./validation-panel";
 import type { FunnelCandidate } from "@/lib/funnel";
@@ -54,6 +55,7 @@ function SelectionStockDetail({stock,candidate,date,mode,themeCode,onClose}:{sto
     {candidate&&<section className="stock-detail-section"><CandidateExplanation candidate={candidate}/></section>}
     <section className="stock-detail-section"><InstrumentHistory fixedMode="daily" stock={stock} date={date} live={mode==="live"} selectedMinuteDate={minuteDate} onDailyDateSelect={setMinuteDate} minutes={()=>null}/></section>
     <DeferredDetailSection label="分时K线"><InstrumentHistory fixedMode="minute" stock={stock} date={date} live={minuteLive} selectedMinuteDate={minuteDate} onMinuteDateChange={setMinuteDate} minutes={(s,d,showChart)=><MinuteDecision key={`${s?.code}${d}${minuteLive}${themeCode??""}`} stock={s} date={d} showChart={showChart} mode={minuteLive?"live":"close"} themeCode={themeCode}/>}/></DeferredDetailSection>
+    <DeferredDetailSection label="公司与事件核验"><StockResearch code={stock.code} name={stock.name} date={date} candidate={candidate}/></DeferredDetailSection>
     <DeferredDetailSection label="核心度"><CoreProfile stock={stock} date={date} mode={mode}/></DeferredDetailSection>
     {mode==="close"&&<DeferredDetailSection label="历史检验"><ValidationPanel key={`${stock.code}:${themeCode??""}:${date}`} code={stock.code} date={date} themeCode={themeCode}/></DeferredDetailSection>}
   </div>;
