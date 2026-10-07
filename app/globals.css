@@ -1618,6 +1618,18 @@ input[type="datetime-local"] {
 .hot-money-roster-detail p{margin:0 0 10px}
 .hot-money-roster-detail .hot-money-table :is(th,td):nth-child(3){text-align:right;white-space:nowrap}
 .hot-money-roster-detail .hot-money-table :is(th,td):nth-child(6){text-align:left;white-space:normal}
+.hot-money-stock-row{cursor:pointer}
+.hot-money-stock-row:hover td{background:#1c304a}
+.hot-money-stock-trigger{display:block;padding:0;border:0;background:transparent;color:#dceafb;text-align:left;cursor:pointer}
+.hot-money-stock-trigger::before{content:"▸";color:#8fb6e6;margin-right:7px}
+.hot-money-stock-trigger[aria-expanded="true"]::before{content:"▾"}
+.hot-money-stock-trigger small{margin-left:17px}
+.hot-money-stock-expanded>td{padding:0!important;background:#14243a!important;text-align:left!important;white-space:normal!important}
+.hot-money-stock-detail{padding:13px 16px 16px;border-top:1px solid #45658b}
+.hot-money-stock-detail>strong{display:block;margin-bottom:10px;font-size:14px}
+.hot-money-stock-detail-table{min-width:830px}
+.hot-money-stock-detail-table :is(th,td):nth-child(3){text-align:right;white-space:nowrap}
+.hot-money-stock-detail-table :is(th,td):nth-child(6){text-align:left;white-space:normal}
 .board-table{min-width:1380px}
 .board-table .board-row-expanded>td{background:#1c304a}
 .board-table .board-expanded-row>td{padding:0!important;text-align:left!important;white-space:normal!important;background:#101d2e}

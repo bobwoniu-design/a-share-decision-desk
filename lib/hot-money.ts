@@ -2,6 +2,7 @@ import type {Row} from "./market-data";
 
 export type HotMoneyPerson={name:string;description:string;organizations:string};
 export type HotMoneyTrade={date:string;code:string;stockName:string;hotMoneyName:string;organizations:string;buyAmount:number|null;sellAmount:number|null;netAmount:number|null;tag:string};
+export type HotMoneyStockRank={code:string;stockName:string;buyAmount:number|null;sellAmount:number|null;netAmount:number;traderCount:number;records:HotMoneyTrade[]};
 
 const amount=(value:unknown)=>value===null||value===undefined||value===""?null:Number.isFinite(Number(value))?Number(value):null;
 const clean=(value:unknown)=>typeof value==="string"?value.trim():"";
@@ -29,4 +30,19 @@ export function normalizeHotMoneyTrades(rows:Row[],date:string):HotMoneyTrade[]{
     if([buyAmount,sellAmount].some(n=>n!==null&&n<0)||!clean(row.hm_name))throw new Error("游资明细名称或金额校验失败");
     return {date,code,stockName:clean(row.ts_name)||code,hotMoneyName:clean(row.hm_name),organizations:clean(row.hm_orgs),buyAmount,sellAmount,netAmount,tag:clean(row.tag)};
   }).sort((a,b)=>Math.abs(b.netAmount??0)-Math.abs(a.netAmount??0)||a.code.localeCompare(b.code));
+}
+
+export function rankHotMoneyStocks(trades:HotMoneyTrade[]):HotMoneyStockRank[]{
+  const byStock=new Map<string,HotMoneyTrade[]>();
+  for(const trade of trades){
+    const records=byStock.get(trade.code)??[];
+    records.push(trade);
+    byStock.set(trade.code,records);
+  }
+  return [...byStock].flatMap(([code,records])=>{
+    // A partial amount would make a stock's place in the ranking misleading.
+    if(records.some(record=>record.netAmount===null))return [];
+    const total=(values:(number|null)[])=>values.every(value=>value!==null)?values.reduce((sum,value)=>sum+(value??0),0):null;
+    return [{code,stockName:records[0].stockName,buyAmount:total(records.map(record=>record.buyAmount)),sellAmount:total(records.map(record=>record.sellAmount)),netAmount:records.reduce((sum,record)=>sum+(record.netAmount??0),0),traderCount:new Set(records.map(record=>record.hotMoneyName)).size,records}];
+  }).sort((a,b)=>b.netAmount-a.netAmount||a.code.localeCompare(b.code));
 }

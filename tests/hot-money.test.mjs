@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {normalizeHotMoneyRoster,normalizeHotMoneyTrades} from "../lib/hot-money.ts";
+import {normalizeHotMoneyRoster,normalizeHotMoneyTrades,rankHotMoneyStocks} from "../lib/hot-money.ts";
 
 test("游资名录按名称去重并保留完整关联营业部",()=>{
   const rows=normalizeHotMoneyRoster([{name:"甲",desc:"简介",orgs:"营业部一、营业部二"},{name:"甲",desc:"重复"},{name:"乙",orgs:"营业部三"}]);
@@ -32,4 +32,18 @@ test("名录和交易明细排除机构、量化与股通类别，但保留关�
     {...row,hm_name:"赵老哥",hm_orgs:"某机构席位"},
   ],"2026-09-30");
   assert.deepEqual(trades.map(item=>item.hotMoneyName),["赵老哥"]);
+});
+
+test("股票榜单按同一股票的游资净买入合计排序，展开保留原始记录",()=>{
+  const base={date:"2026-09-30",stockName:"样本股",organizations:"营业部",tag:""};
+  const ranks=rankHotMoneyStocks([
+    {...base,code:"600001.SH",hotMoneyName:"甲",buyAmount:1000000,sellAmount:0,netAmount:1000000},
+    {...base,code:"600001.SH",hotMoneyName:"乙",buyAmount:0,sellAmount:300000,netAmount:-300000},
+    {...base,code:"600002.SH",hotMoneyName:"丙",buyAmount:500000,sellAmount:0,netAmount:500000},
+    {...base,code:"600003.SH",hotMoneyName:"丁",buyAmount:null,sellAmount:null,netAmount:null},
+  ]);
+  assert.deepEqual(ranks.map(item=>item.code),["600001.SH","600002.SH"]);
+  assert.equal(ranks[0].netAmount,700000);
+  assert.equal(ranks[0].traderCount,2);
+  assert.equal(ranks[0].records.length,2);
 });
