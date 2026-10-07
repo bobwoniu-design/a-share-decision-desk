@@ -34,3 +34,12 @@ export const marketObservations = sqliteTable("market_observations",{
   reason:text("reason").notNull(),
   capturedAt:text("captured_at").notNull(),
 },(t)=>[primaryKey({columns:[t.date,t.time]})]);
+export const alertEvents = sqliteTable("alert_events",{
+  owner:text("owner").notNull(),
+  date:text("date").notNull(),
+  code:text("code").notNull(),
+  kind:text("kind").notNull(),
+  barTime:text("bar_time").notNull(),
+  status:text("status").notNull(),
+  updatedAt:text("updated_at").notNull(),
+},(t)=>[primaryKey({columns:[t.owner,t.date,t.code,t.kind]})]);
