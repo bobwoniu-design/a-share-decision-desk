@@ -5,7 +5,19 @@ import {buildDecision,weightedScore} from '../lib/decision-engine.ts';
 import {sectorGroups} from '../lib/sectors.ts';
 import {evaluateSignalDay} from '../lib/signal-metrics.ts';
 import {boardEvidence} from '../lib/board-evidence.ts';
+import {buildBoardList} from '../lib/board-list.ts';
 import {marketValidation,marketValidationFromSummaries} from '../lib/market-validation.ts';
+test('seven-day board list distinguishes sealed streaks from touches including broken boards',()=>{
+  const dates=['2026-09-21','2026-09-22','2026-09-23','2026-09-24','2026-09-25','2026-09-28','2026-09-30'];
+  const row=(date,code,limit,limit_times)=>({ts_code:code,trade_date:date.replaceAll('-',''),name:code,industry:'测试',limit,limit_times,amount:100000,pct_chg:9.9});
+  const rows=dates.map((date,i)=>[row(date,'600001.SH',i===2?'Z':'U',i===6?2:1),...(i===6?[row(date,'600002.SH','Z',0),row(date,'600003.SH','D',0)]:i===4?[row(date,'600004.SH','U',1)]:[])]);
+  const result=buildBoardList(dates.at(-1),dates,rows);
+  assert.equal(result.sealed,1);assert.equal(result.broken,1);assert.equal(result.items.length,3);
+  assert.deepEqual([result.items[0].height,result.items[0].touches7,result.items[0].sealed7],[2,7,6]);
+  assert.deepEqual([result.items[1].status,result.items[1].touches7,result.items[1].height],['炸板',1,null]);
+  assert.deepEqual([result.items[2].status,result.items[2].touches7,result.items[2].today],['今日未触板',1,false]);
+  assert.throws(()=>buildBoardList(dates.at(-1),dates,rows.map((r,i)=>i===0?[{...r[0],trade_date:'20260920'}]:r)));
+});
 function sample(){let price=10;return Array.from({length:100},(_,i)=>{const prev=price;price=i<25?10+i*.02:i<35?10.48-(i-24)*.06:i<45?9.88+(i-35)*.006:i<65?9.94+(i-45)*.04:i<75?10.74+(i-65)*.12:i<85?11.94+(i-75)*.2:13.94-(i-85)*.35;const vol=i<25?1000:i<35?3000:i<45?600:i<65?4000: i<85?10000+i*150:20000;return {time:`${String(Math.floor((571+i)/60)).padStart(2,'0')}:${String((571+i)%60).padStart(2,'0')}`,open:prev,high:Math.max(prev,price)+.001,low:Math.min(prev,price)-.001,close:price,vol,amount:(prev+price)/2*vol};});}
 const bars=sample(),sector=bars.map(b=>({time:b.time,phase:'转强',strong:true,weak:false,reason:'validated test cohort',coverage:6,total:6}));
 const context={sector,theme:sector,mainlineCore:true,themeAllowed:true,marketAllowed:true,preClose:10,floatShares:1e7};
