@@ -10,28 +10,56 @@ import type {FunnelCandidate,FunnelOverview} from "@/lib/funnel";
 import {FunnelMinuteMonitor,FunnelValidationPanel} from "./funnel-extras";
 import {WatchlistToggle} from "./watchlist-toggle";
 import {DragonTigerTag,type DragonTigerStatus} from "./dragon-tiger-tag";
+import {StockChartPreview,type StockCandleBatch} from "./stock-chart-preview";
 
 const filters=["全部","重点观察","条件观察","证据不足"] as const;
 const show=(n:number|null)=>n===null?"—":String(n);
 type StockCandles={date:string;mode:"close"|"live";asOf:string;dates:string[];byCode:Record<string,Candle[]>};
-export function FunnelBrowser({date,mode,expandedCode,onSelect,renderDetails,dragonTiger}:{date:string;mode:"close"|"live";expandedCode:string|null;onSelect:(candidate:FunnelCandidate)=>void;renderDetails:(candidate:FunnelCandidate)=>ReactNode;dragonTiger:DragonTigerStatus}){
+export type PersonalSelection={code:string;name:string;kind:string};
+type DragonFilter="all"|"listed"|"unlisted";
+export function FunnelBrowser({date,mode,expandedCode,expandedSource,onSelect,onSelectPersonal,onLookup,renderDetails,renderPersonalDetails,dragonTiger,personal,personalCandles}:{date:string;mode:"close"|"live";expandedCode:string|null;expandedSource:"candidate"|"personal"|"external";onSelect:(candidate:FunnelCandidate)=>void;onSelectPersonal:(stock:PersonalSelection)=>void;onLookup:(code:string)=>void;renderDetails:(candidate:FunnelCandidate)=>ReactNode;renderPersonalDetails:(stock:PersonalSelection)=>ReactNode;dragonTiger:DragonTigerStatus;personal:PersonalSelection[];personalCandles:StockCandleBatch|null}){
   const {data,error,busy,retry}=useDecision<FunnelOverview>(`/api/market/decision?view=funnel&date=${date}&mode=${mode}`,mode==="live");
   useEffect(()=>{if(!data||mode!=="close")return;const controller=new AbortController();void fetch(`/api/market/decision?view=basis&date=${date}&mode=close`,{signal:controller.signal,cache:"no-store"}).catch(()=>undefined);return()=>controller.abort();},[data,date,mode]);
   const [filter,setFilter]=useState<(typeof filters)[number]>("全部");
+  const [personalOnly,setPersonalOnly]=useState(false);
+  const [dragonFilter,setDragonFilter]=useState<DragonFilter>("all");
+  const [query,setQuery]=useState("");
   const [chartStock,setChartStock]=useState<FunnelCandidate|null>(null);
-  const candidates=data?.candidates??[],visible=candidates.filter(c=>filter==="全部"||c.status===filter);
+  const candidates=data?.candidates??[];
+  const candidateCodes=new Set(candidates.map(c=>c.code));
+  const personalCodes=new Set(personal.map(p=>p.code));
+  const personalOnlyRows=personal.filter(p=>!candidateCodes.has(p.code));
+  const datedDragon=dragonTiger.data?.date===date?dragonTiger.data:null;
+  const dragonReady=mode==="close"&&!!datedDragon;
+  const candidateVisible=(personalOnly?candidates.filter(c=>personalCodes.has(c.code)):candidates.filter(c=>filter==="全部"||c.status===filter))
+    .filter(c=>dragonFilter==="all"||dragonReady&&(dragonFilter==="listed"?!!datedDragon?.byCode[c.code]:!datedDragon?.byCode[c.code]));
+  const personalVisible=(personalOnly||filter==="全部"?personalOnlyRows:[])
+    .filter(p=>dragonFilter==="all"||dragonReady&&(dragonFilter==="listed"?!!datedDragon?.byCode[p.code]:!datedDragon?.byCode[p.code]));
+  const visibleCount=candidateVisible.length+personalVisible.length;
   const candleUrl=candidates.length?`/api/market/stock-candles?date=${date}&mode=${mode}&codes=${candidates.map(c=>c.code).join(",")}`:null;
   const candles=useDecision<StockCandles>(candleUrl);
   const candleData=candles.data?.date===date&&candles.data.mode===mode?candles.data:null;
-  return <Panel title="交易候选池" extra={<span className="muted">{mode==="live"?"盘中快照 · 分钟条件需点开核对":"收盘观察 · 不回填盘中"}</span>} className="funnel-browser">
-    {busy?<p className="history-small-empty" role="status">正在交叉核对市场、行业、题材和候选股…</p>:error?<p className="history-small-empty" role="alert">{error}<button className="text-link" onClick={retry}>重试</button></p>:data&&<>
-      <FunnelMinuteMonitor candidates={candidates} date={date} mode={mode}/>
-      <div className="board-filter-tabs funnel-filters">{filters.map(f=><button key={f} className={filter===f?"active":""} aria-pressed={filter===f} onClick={()=>setFilter(f)}>{f}<span>{f==="全部"?candidates.length:candidates.filter(c=>c.status===f).length}</span></button>)}<span className="funnel-market-note"><b>{data.market.stance}</b><span>{data.market.focus}</span></span></div>
-      {visible.length?<div className="funnel-table-wrap"><table className="history-table funnel-table"><thead><tr><th>股票 / 近20日日K</th><th>题材 × 行业</th><th>角色</th><th>地位</th><th>机会预评</th><th>风险</th><th>当前判断</th><th>龙虎榜</th><th>当前自选</th><th>详情</th></tr></thead><tbody>{visible.map(c=>{const points=candleData?.byCode[c.code];return <Fragment key={c.code}><tr className={expandedCode===c.code?"selected":""}><td><div className="funnel-stock-cell"><button className="member-name" aria-expanded={expandedCode===c.code} onClick={()=>onSelect(c)}><b>{c.name}</b><small>{c.code} · {c.height?`${c.height}板`:`${c.pct>=0?"+":""}${c.pct.toFixed(2)}%`}</small></button>{points?.length?<button type="button" className="funnel-candle-trigger" onClick={()=>setChartStock(c)} aria-label={`查看${c.name}近60个交易日日K`} aria-haspopup="dialog"><CandleChart dates={candleData!.dates} points={points} mini/></button>:<span className="funnel-candle-placeholder">{candles.error?"K线不可用":candles.busy?"K线读取中…":"暂无K线"}</span>}</div></td><td><b>{c.theme?.name??"题材待核"}</b><small>{c.theme?.phase??"—"} × {c.industry} · {c.industryPhase}</small></td><td>{c.role}</td><td>{show(c.positionScore)}</td><td>{show(c.opportunityScore)}</td><td><span className="amber-text">{c.risk.level}</span><small>{c.risk.flags[0]??"未触发预设风险"}</small></td><td><span className={`funnel-status ${c.status==="重点观察"?"focus":""}`}>{c.status}</span><small>{c.action}</small></td><td><DragonTigerTag code={c.code} date={date} mode={mode} status={dragonTiger}/></td><td><WatchlistToggle code={c.code} name={c.name}/></td><td><button className="text-link" aria-expanded={expandedCode===c.code} onClick={()=>onSelect(c)}>{expandedCode===c.code?"收起":"展开"}</button></td></tr>{expandedCode===c.code&&<tr className="selection-expanded-row"><td colSpan={10}>{renderDetails(c)}</td></tr>}</Fragment>;})}</tbody></table>{candles.error&&<p className="history-small-empty">候选股K线暂不可用：{candles.error} <button type="button" className="text-link" onClick={candles.retry}>重试K线</button></p>}</div>:<p className="history-small-empty">当前筛选下没有候选；不会为凑数量降低条件。</p>}
-      {mode==="close"&&<FunnelValidationPanel date={date}/>}
-      <Dialog open={chartStock!==null} onOpenChange={open=>{if(!open)setChartStock(null);}}><DialogContent className="dialog-body funnel-candle-dialog"><DialogHeader><DialogTitle>{chartStock?.name} · 图表</DialogTitle><DialogDescription>分时与日K使用与个股详情一致的行情口径；日K只展示已完成的交易日。</DialogDescription></DialogHeader>{chartStock&&<StockChartTabs key={`${chartStock.code}:${date}`} stock={{code:chartStock.code,name:chartStock.name}} date={date} marketMode={mode} themeCode={chartStock.theme?.code} showZoom={false}/>}</DialogContent></Dialog>
-      <details className="history-details"><summary>候选池口径与局限</summary>{data.warnings.map(w=><p key={w}>{w}</p>)}<p>地位分结合行业核心度与题材内的量价排序候选；机会预评结合市场、题材、行业与当日价格风险。只输出观察优先级，盘中买点需打开个股分钟图核对。</p></details>
-    </>}
+  return <Panel title="选股列表" extra={<span className="muted">{mode==="live"?"盘中快照 · 龙虎榜待公布":"收盘观察 · 按所选日期核对龙虎榜"}</span>} className="funnel-browser">
+    {busy&&<p className="history-small-empty" role="status">正在交叉核对市场、行业、题材和候选股…</p>}
+    {error&&<p className="history-small-empty" role="alert">候选池暂不可用：{error}<button className="text-link" onClick={retry}>重试</button></p>}
+    {data&&<FunnelMinuteMonitor candidates={candidates} date={date} mode={mode}/>}
+    <div className="board-filter-tabs funnel-filters">
+      {filters.map(f=><button key={f} className={!personalOnly&&filter===f?"active":""} aria-pressed={!personalOnly&&filter===f} onClick={()=>{setFilter(f);setPersonalOnly(false);}}>{f}<span>{f==="全部"?candidates.length+personalOnlyRows.length:candidates.filter(c=>c.status===f).length}</span></button>)}
+      <button className={personalOnly?"active":""} aria-pressed={personalOnly} onClick={()=>setPersonalOnly(true)}>自选 / 持仓<span>{personal.length}</span></button>
+      {data&&<span className="funnel-market-note"><b>{data.market.stance}</b><span>{data.market.focus}</span></span>}
+    </div>
+    <div className="funnel-secondary-filters">
+      <label>龙虎榜 <select aria-label="龙虎榜筛选" value={dragonFilter} onChange={e=>setDragonFilter(e.target.value as DragonFilter)}><option value="all">全部</option><option value="listed">当日上榜</option><option value="unlisted">当日未上榜</option></select></label>
+      <form onSubmit={e=>{e.preventDefault();const code=query.trim().toUpperCase();if(/^\d{6}\.(SH|SZ|BJ)$/.test(code))onLookup(code);}}><input aria-label="查询证券代码" placeholder="例如 600418.SH" pattern="[0-9]{6}\.(SH|SZ|BJ)" required value={query} onChange={e=>setQuery(e.target.value.toUpperCase())}/><button className="button">查看股票</button></form>
+    </div>
+    {dragonFilter!=="all"&&!dragonReady&&<p className="history-small-empty" role="status">{mode==="live"?"盘中龙虎榜尚未公布，收盘后选择历史复盘再筛选。":dragonTiger.busy?"正在核对所选日期的龙虎榜名单…":<>龙虎榜名单待核验，暂不显示筛选结果。<button type="button" className="text-link" onClick={dragonTiger.retry}>重试</button></>}</p>}
+    {visibleCount>0?<div className="funnel-table-wrap"><table className="history-table funnel-table"><thead><tr><th>股票 / 近20日日K</th><th>题材 × 行业</th><th>角色</th><th>地位</th><th>机会预评</th><th>风险</th><th>当前判断</th><th>龙虎榜</th><th>自选</th><th>详情</th></tr></thead><tbody>
+      {candidateVisible.map(c=>{const points=candleData?.byCode[c.code],expanded=expandedCode===c.code&&expandedSource==="candidate";return <Fragment key={c.code}><tr className={expanded?"selected":""}><td><div className="funnel-stock-cell"><button className="member-name" aria-expanded={expanded} onClick={()=>onSelect(c)}><b>{c.name}</b><small>{c.code} · {c.height?`${c.height}板`:`${c.pct>=0?"+":""}${c.pct.toFixed(2)}%`}</small></button>{points?.length?<button type="button" className="funnel-candle-trigger" onClick={()=>setChartStock(c)} aria-label={`查看${c.name}近60个交易日日K`} aria-haspopup="dialog"><CandleChart dates={candleData!.dates} points={points} mini/></button>:<span className="funnel-candle-placeholder">{candles.error?"K线不可用":candles.busy?"K线读取中…":"暂无K线"}</span>}</div></td><td><b>{c.theme?.name??"题材待核"}</b><small>{c.theme?.phase??"—"} × {c.industry} · {c.industryPhase}</small></td><td>{c.role}</td><td>{show(c.positionScore)}</td><td>{show(c.opportunityScore)}</td><td><span className="amber-text">{c.risk.level}</span><small>{c.risk.flags[0]??"未触发预设风险"}</small></td><td><span className={`funnel-status ${c.status==="重点观察"?"focus":""}`}>{c.status}</span><small>{c.action}</small></td><td><DragonTigerTag code={c.code} date={date} mode={mode} status={dragonTiger}/></td><td><WatchlistToggle code={c.code} name={c.name}/></td><td><button className="text-link" aria-expanded={expanded} onClick={()=>onSelect(c)}>{expanded?"收起":"展开"}</button></td></tr>{expanded&&<tr className="selection-expanded-row"><td colSpan={10}>{renderDetails(c)}</td></tr>}</Fragment>;})}
+      {personalVisible.map(p=>{const expanded=expandedCode===p.code&&expandedSource==="personal",index=personal.findIndex(item=>item.code===p.code);return <Fragment key={p.code}><tr className={expanded?"selected":""}><td><div className="funnel-stock-cell"><button className="member-name" aria-expanded={expanded} onClick={()=>onSelectPersonal(p)}><b>{p.name}</b><small>{p.code}</small></button><StockChartPreview stock={p} date={date} mode={mode} batch={personalCandles} fetchSingle={index>=40}/></div></td><td>—</td><td>{p.kind}</td><td>—</td><td>—</td><td>—</td><td><span className="funnel-status">个人关注</span></td><td><DragonTigerTag code={p.code} date={date} mode={mode} status={dragonTiger}/></td><td><WatchlistToggle code={p.code} name={p.name}/></td><td><button className="text-link" aria-expanded={expanded} onClick={()=>onSelectPersonal(p)}>{expanded?"收起":"展开"}</button></td></tr>{expanded&&<tr className="selection-expanded-row"><td colSpan={10}>{renderPersonalDetails(p)}</td></tr>}</Fragment>;})}
+    </tbody></table>{candles.error&&<p className="history-small-empty">候选股K线暂不可用：{candles.error} <button type="button" className="text-link" onClick={candles.retry}>重试K线</button></p>}</div>:dragonFilter==="all"||dragonReady?<p className="history-small-empty">当前筛选下没有股票。</p>:null}
+    {mode==="close"&&data&&<FunnelValidationPanel date={date}/>}
+    <Dialog open={chartStock!==null} onOpenChange={open=>{if(!open)setChartStock(null);}}><DialogContent className="dialog-body funnel-candle-dialog"><DialogHeader><DialogTitle>{chartStock?.name} · 图表</DialogTitle><DialogDescription>分时与日K使用与个股详情一致的行情口径；日K只展示已完成的交易日。</DialogDescription></DialogHeader>{chartStock&&<StockChartTabs key={`${chartStock.code}:${date}`} stock={{code:chartStock.code,name:chartStock.name}} date={date} marketMode={mode} themeCode={chartStock.theme?.code} showZoom={false}/>}</DialogContent></Dialog>
+    {data&&<details className="history-details"><summary>候选池口径与局限</summary>{data.warnings.map(w=><p key={w}>{w}</p>)}<p>地位分结合行业核心度与题材内的量价排序候选；机会预评结合市场、题材、行业与当日价格风险。只输出观察优先级，盘中买点需打开个股分钟图核对。</p></details>}
   </Panel>;
 }
 
