@@ -1355,9 +1355,15 @@ input[type="datetime-local"] {
 .selection-personal-wrap{overflow-x:auto}
 .selection-personal-table{width:100%;min-width:520px}
 .selection-personal-table td{vertical-align:middle}
-.stock-detail-dialog{width:min(96vw,1280px);max-height:92vh;overflow-y:auto}
-.stock-detail-dialog .funnel-explain{border:1px solid #304662;border-radius:7px}
+.selection-expanded-row>td{padding:0!important;text-align:left!important;white-space:normal;background:#101d2e}
+.selection-standalone-detail{border:1px solid #466286;border-radius:8px;overflow:hidden}
 .stock-detail-content{display:flex;flex-direction:column;gap:12px;min-width:0}
+.selection-expanded-row .stock-detail-content,.selection-standalone-detail .stock-detail-content{padding:12px;border-top:1px solid #45658b}
+.selection-detail-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.selection-detail-heading>div{display:flex;align-items:baseline;gap:9px;flex-wrap:wrap}
+.selection-detail-heading b{font-size:17px;color:#dfedff}
+.selection-detail-heading span{font-size:12px;color:#94abc9}
+.stock-detail-content .funnel-explain{border:1px solid #304662;border-radius:7px}
 .stock-detail-content>.column{min-width:0}
 .minute-state-heading{grid-template-columns:repeat(3,minmax(0,1fr))}
 @media(max-width:950px){.funnel-explain-grid{grid-template-columns:1fr}}

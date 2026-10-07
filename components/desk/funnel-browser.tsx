@@ -1,12 +1,12 @@
 "use client";
-import {useEffect,useState} from "react";
+import {Fragment,useEffect,useState,type ReactNode} from "react";
 import {Panel} from "./workspace";
 import {useDecision} from "./decision";
 import type {FunnelCandidate,FunnelOverview} from "@/lib/funnel";
 
 const filters=["全部","重点观察","条件观察","证据不足"] as const;
 const show=(n:number|null)=>n===null?"—":String(n);
-export function FunnelBrowser({date,mode,selectedCode,onSelect}:{date:string;mode:"close"|"live";selectedCode:string;onSelect:(candidate:FunnelCandidate)=>void}){
+export function FunnelBrowser({date,mode,expandedCode,onSelect,renderDetails}:{date:string;mode:"close"|"live";expandedCode:string|null;onSelect:(candidate:FunnelCandidate)=>void;renderDetails:(candidate:FunnelCandidate)=>ReactNode}){
   const {data,error,busy,retry}=useDecision<FunnelOverview>(`/api/market/decision?view=funnel&date=${date}&mode=${mode}`,mode==="live");
   useEffect(()=>{if(!data||mode!=="close")return;const controller=new AbortController();void fetch(`/api/market/decision?view=basis&date=${date}&mode=close`,{signal:controller.signal,cache:"no-store"}).catch(()=>undefined);return()=>controller.abort();},[data,date,mode]);
   const [filter,setFilter]=useState<(typeof filters)[number]>("全部");
@@ -16,7 +16,7 @@ export function FunnelBrowser({date,mode,selectedCode,onSelect}:{date:string;mod
       <div className="funnel-summary"><span><b>{data.verifiedThemes}/{data.screenedThemes}</b><small>题材成分已核对</small></span><span><b>{data.industryCount}</b><small>行业初筛或候选</small></span><span><b>{data.candidateCount}</b><small>交易观察候选</small></span><span><b>{data.focusCount}</b><small>重点观察</small></span></div>
       <div className="funnel-context"><b>{data.market.stance}</b><span>{data.market.focus}</span><small>题材、行业和个股角色均为规则候选；机会分不是胜率，也不是买入指令。</small></div>
       <div className="board-filter-tabs funnel-filters">{filters.map(f=><button key={f} className={filter===f?"active":""} aria-pressed={filter===f} onClick={()=>setFilter(f)}>{f}<span>{f==="全部"?candidates.length:candidates.filter(c=>c.status===f).length}</span></button>)}</div>
-      {visible.length?<div className="funnel-table-wrap"><table className="history-table funnel-table"><thead><tr><th>股票 / 模式</th><th>题材 × 行业</th><th>角色</th><th>地位</th><th>机会预评</th><th>当前判断</th></tr></thead><tbody>{visible.map(c=><tr key={c.code} className={selectedCode===c.code?"selected":""}><td><button className="member-name" onClick={()=>onSelect(c)}><b>{c.name}</b><small>{c.code} · {c.height?`${c.height}板`:`${c.pct>=0?"+":""}${c.pct.toFixed(2)}%`}</small></button></td><td><b>{c.theme?.name??"题材待核"}</b><small>{c.theme?.phase??"—"} × {c.industry} · {c.industryPhase}</small></td><td>{c.role}</td><td>{show(c.positionScore)}</td><td>{show(c.opportunityScore)}</td><td><span className={`funnel-status ${c.status==="重点观察"?"focus":""}`}>{c.status}</span><small>{c.action}</small></td></tr>)}</tbody></table></div>:<p className="history-small-empty">当前筛选下没有候选；不会为凑数量降低条件。</p>}
+      {visible.length?<div className="funnel-table-wrap"><table className="history-table funnel-table"><thead><tr><th>股票 / 模式</th><th>题材 × 行业</th><th>角色</th><th>地位</th><th>机会预评</th><th>当前判断</th><th>详情</th></tr></thead><tbody>{visible.map(c=><Fragment key={c.code}><tr className={expandedCode===c.code?"selected":""}><td><button className="member-name" aria-expanded={expandedCode===c.code} onClick={()=>onSelect(c)}><b>{c.name}</b><small>{c.code} · {c.height?`${c.height}板`:`${c.pct>=0?"+":""}${c.pct.toFixed(2)}%`}</small></button></td><td><b>{c.theme?.name??"题材待核"}</b><small>{c.theme?.phase??"—"} × {c.industry} · {c.industryPhase}</small></td><td>{c.role}</td><td>{show(c.positionScore)}</td><td>{show(c.opportunityScore)}</td><td><span className={`funnel-status ${c.status==="重点观察"?"focus":""}`}>{c.status}</span><small>{c.action}</small></td><td><button className="text-link" aria-expanded={expandedCode===c.code} onClick={()=>onSelect(c)}>{expandedCode===c.code?"收起":"展开"}</button></td></tr>{expandedCode===c.code&&<tr className="selection-expanded-row"><td colSpan={7}>{renderDetails(c)}</td></tr>}</Fragment>)}</tbody></table></div>:<p className="history-small-empty">当前筛选下没有候选；不会为凑数量降低条件。</p>}
       <details className="history-details"><summary>候选池口径与局限</summary>{data.warnings.map(w=><p key={w}>{w}</p>)}<p>地位分结合行业核心度与题材内的量价排序候选；机会预评结合市场、题材、行业与当日价格风险。只输出观察优先级，盘中买点需打开个股分钟图核对。</p></details>
     </>}
   </Panel>;
