@@ -60,10 +60,23 @@ def in_session(now: datetime) -> bool:
     return local.weekday() < 5 and any(start <= current <= end for start, end in CHINA_SESSIONS)
 
 
-def run(config: dict, *, check_only: bool = False, now: datetime | None = None) -> dict:
+def credentials(config: dict) -> tuple[str, str]:
     url, token = config.get("url"), config.get("token")
     if not isinstance(url, str) or not url.startswith("https://") or not isinstance(token, str) or not token:
         raise ScanError("配置缺少 HTTPS 站点地址或服务凭证")
+    return url, token
+
+
+def send_test_alert(config: dict) -> dict:
+    url, token = credentials(config)
+    result = post(url, token, {"action": "test"})
+    if result.get("delivered") is not True:
+        raise ScanError("Bark 未确认测试消息送达")
+    return {"test": "bark", "delivered": True}
+
+
+def run(config: dict, *, check_only: bool = False, now: datetime | None = None) -> dict:
+    url, token = credentials(config)
     now = now or datetime.now(CHINA_TIME)
     date = now.astimezone(CHINA_TIME).date().isoformat()
     if not check_only and not in_session(now):
@@ -105,7 +118,9 @@ def run(config: dict, *, check_only: bool = False, now: datetime | None = None) 
 def main() -> int:
     parser = argparse.ArgumentParser(description="短线决策台盘中扫描")
     parser.add_argument("--config", type=Path, default=Path(__file__).with_name("config.json"))
-    parser.add_argument("--check-only", action="store_true", help="只验证私有站点连接，不发送交易提醒")
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument("--check-only", action="store_true", help="只验证私有站点连接，不发送交易提醒")
+    mode.add_argument("--test-alert", action="store_true", help="发送一条标为测试的 Bark 消息")
     args = parser.parse_args()
     logger = logging.getLogger("decision_desk_scanner")
     logger.setLevel(logging.INFO)
@@ -114,7 +129,7 @@ def main() -> int:
     logger.addHandler(handler)
     try:
         config = json.loads(args.config.read_text(encoding="utf-8-sig"))
-        result = run(config, check_only=args.check_only)
+        result = send_test_alert(config) if args.test_alert else run(config, check_only=args.check_only)
         logger.info(json.dumps(result, ensure_ascii=False))
         print(json.dumps(result, ensure_ascii=False), flush=True)
         return 0 if result.get("errors", 0) == 0 else 2

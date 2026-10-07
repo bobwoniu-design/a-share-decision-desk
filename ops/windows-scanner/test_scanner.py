@@ -39,6 +39,12 @@ class ScannerTests(unittest.TestCase):
         self.assertEqual(result["connection"], "ok")
         self.assertEqual(request.call_count, 1)
 
+    def test_bark_test_uses_the_same_authenticated_site_endpoint(self):
+        with patch.object(scanner, "post", return_value={"delivered": True}) as request:
+            result = scanner.send_test_alert(CONFIG)
+        self.assertEqual(result, {"test": "bark", "delivered": True})
+        request.assert_called_once_with(CONFIG["url"], CONFIG["token"], {"action": "test"})
+
 
 if __name__ == "__main__":
     unittest.main()

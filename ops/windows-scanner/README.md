@@ -13,6 +13,8 @@ Get-ScheduledTask -TaskName DecisionDeskIntradayScanner | Get-ScheduledTaskInfo
 Get-Content "$env:ProgramData\DecisionDeskScanner\scanner.log" -Tail 20
 ```
 
+要测试 Windows → 私有站点 → Bark 整条链路，可在任务计划程序中以 SYSTEM 身份临时运行 `scanner.py --config "%ProgramData%\DecisionDeskScanner\config.json" --test-alert`。它会发送一条明确标为测试的消息，不会扫描股票或下单；成功时日志记录 `{"test":"bark","delivered":true}`。普通的 `--check-only` 只验证连接，不发送 Bark 消息。
+
 停止后台提醒：
 
 ```powershell
