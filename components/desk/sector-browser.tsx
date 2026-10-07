@@ -21,23 +21,28 @@ export function SectorBrowser({date,code,onSelect,scored,focus,mode="close"}:{da
   useEffect(()=>{if(mode!=="live"||/40204|IP数量|权限|访问频次/.test(error))return;const timer=setInterval(()=>{if(document.visibilityState==="visible"&&liveSession(chinaNow().time))setRetry(n=>n+1);},60000);return()=>clearInterval(timer);},[mode,error]);
   useEffect(()=>{setExpanded([]);setBoardFilter("全部");setBoardQuery("");},[date,mode]);
   useEffect(()=>{if(focus?.name&&focus.serial!==handledFocus.current&&data?.groups.some(g=>g.name===focus.name)){
-    handledFocus.current=focus.serial;setBoardFilter("全部");setBoardQuery("");setExpanded(current=>current.includes(focus.name)?current:[...current,focus.name]);
+    handledFocus.current=focus.serial;setBoardFilter("全部");setBoardQuery("");
+    const ranks=new Map(scored?.map(s=>[s.name,s.rank])??[]);
+    const ordered=data.groups.slice().sort((a,b)=>(ranks.get(a.name)??999)-(ranks.get(b.name)??999)||a.name.localeCompare(b.name,"zh-CN"));
+    const index=ordered.findIndex(g=>g.name===focus.name);
+    const names=ordered.slice(Math.floor(index/3)*3,Math.floor(index/3)*3+3).map(g=>g.name);
+    setExpanded(current=>[...new Set([...current,...names])]);
     setTimeout(()=>document.getElementById(`sector-detail-${encodeURIComponent(focus.name)}`)?.scrollIntoView({behavior:"smooth",block:"start"}),50);
-  }},[focus,data]);
+  }},[focus,data,scored]);
   const scoreByName=new Map(scored?.map(s=>[s.name,s])??[]);
   const labelFor=(name:string)=>scoreByName.get(name)?.label??"待数据";
   const ordered=data?.groups.slice().sort((a,b)=>(scoreByName.get(a.name)?.rank??999)-(scoreByName.get(b.name)?.rank??999)||a.name.localeCompare(b.name,"zh-CN"))??[];
   const visible=ordered.filter(g=>(boardFilter==="全部"||labelFor(g.name)===boardFilter)&&(!boardQuery||g.name.includes(boardQuery.trim())));
   const cardRows=Array.from({length:Math.ceil(visible.length/3)},(_,i)=>visible.slice(i*3,i*3+3));
   const counts=new Map(boardFilters.map(label=>[label,label==="全部"?ordered.length:ordered.filter(g=>labelFor(g.name)===label).length]));
-  const toggle=(name:string)=>setExpanded(current=>current.includes(name)?current.filter(n=>n!==name):[...current,name]);
+  const toggleRow=(row:SectorGroup[])=>{const names=row.map(g=>g.name);setExpanded(current=>current.includes(names[0])?current.filter(n=>!names.includes(n)):[...new Set([...current,...names])]);};
   return <Panel title="行业板块全景" extra={<span className="muted">{data?.groups.length??"—"} 个行业</span>} className="sector-browser">
     {loading?<p className="history-small-empty" role="status">正在读取全市场行业成员…</p>:error?<p className="history-small-empty" role="alert">{error}<button className="text-link" onClick={()=>setRetry(n=>n+1)}>重试</button></p>:data&&<>
       <div className="board-toolbar"><div className="board-filter-tabs" aria-label="按行业定位筛选">{boardFilters.map(label=><button key={label} aria-pressed={boardFilter===label} className={boardFilter===label?"active":""} onClick={()=>{setBoardFilter(label);setExpanded([]);}}>{label}<span>{counts.get(label)}</span></button>)}</div><input aria-label="搜索行业板块" placeholder="搜索行业" value={boardQuery} onChange={e=>{setBoardQuery(e.target.value);setExpanded([]);}}/></div>
-      <div className="board-results">显示 {visible.length} / {ordered.length} 个行业 · 按强度分排序；可同时展开多个板块</div>
+      <div className="board-results">显示 {visible.length} / {ordered.length} 个行业 · 点击任一卡片，同时展开本排板块详情</div>
       <div className="board-rows">{cardRows.map(row=><div key={row[0].name} className="board-row"><div className="board-row-cards">
-        {row.map(g=>{const s=scoreByName.get(g.name);return <div key={g.name} className="board-column"><button className={`board-card ${expanded.includes(g.name)?"selected":""}`} aria-expanded={expanded.includes(g.name)} onClick={()=>toggle(g.name)}><span className="board-card-top"><b>{g.name}</b><em className={`board-label board-label-${s?.label==="退潮"?"risk":s?.label==="主线初筛"?"main":s?.label==="主线候选"?"candidate":"neutral"}`}>{labelFor(g.name)}</em></span><span className="board-card-score"><strong>{s?.score??"—"}</strong><small className={(s?.delta??0)<0?"down":"up"}>{s?.delta==null?"较前日 —":`${s.delta>=0?"↑ +":"↓ "}${s.delta.toFixed(0)}`}</small></span><span className="board-card-meta"><span className={(g.averagePct??0)<0?"down":"up"}>{pct(g.averagePct)}</span><span>涨停 {g.limitUp??"—"}</span><span>{g.total} 只</span></span><span className="board-card-foot">主线资格 {s?.qualification.status??"待数据"} · 上涨 {g.up} / 下跌 {g.down} · 成交 {g.amountYi.toFixed(1)} 亿</span></button>
-          {expanded.includes(g.name)&&<IndustryDetailView group={g} sector={s} warnings={data.warnings} code={code} onSelect={onSelect} onClose={()=>toggle(g.name)}/>}
+        {row.map(g=>{const s=scoreByName.get(g.name);return <div key={g.name} className="board-column"><button className={`board-card ${expanded.includes(g.name)?"selected":""}`} aria-expanded={expanded.includes(g.name)} onClick={()=>toggleRow(row)}><span className="board-card-top"><b>{g.name}</b><em className={`board-label board-label-${s?.label==="退潮"?"risk":s?.label==="主线初筛"?"main":s?.label==="主线候选"?"candidate":"neutral"}`}>{labelFor(g.name)}</em></span><span className="board-card-score"><strong>{s?.score??"—"}</strong><small className={(s?.delta??0)<0?"down":"up"}>{s?.delta==null?"较前日 —":`${s.delta>=0?"↑ +":"↓ "}${s.delta.toFixed(0)}`}</small></span><span className="board-card-meta"><span className={(g.averagePct??0)<0?"down":"up"}>{pct(g.averagePct)}</span><span>涨停 {g.limitUp??"—"}</span><span>{g.total} 只</span></span><span className="board-card-foot">主线资格 {s?.qualification.status??"待数据"} · 上涨 {g.up} / 下跌 {g.down} · 成交 {g.amountYi.toFixed(1)} 亿</span></button>
+          {expanded.includes(g.name)&&<IndustryDetailView group={g} sector={s} warnings={data.warnings} code={code} onSelect={onSelect} onClose={()=>toggleRow(row)}/>}
         </div>;})}
       </div></div>)}</div>
       {!visible.length&&<p className="history-small-empty">当前筛选下没有行业板块。</p>}
@@ -52,7 +57,7 @@ function IndustryDetailView({group,sector,warnings,code,onSelect,onClose}:{group
   if(sort==="rise")rows.sort((a,b)=>(b.quote?.pct??-Infinity)-(a.quote?.pct??-Infinity));
   if(sort==="fall")rows.sort((a,b)=>(a.quote?.pct??Infinity)-(b.quote?.pct??Infinity));
   const pageIndex=Math.min(page,Math.max(0,Math.ceil(rows.length/30)-1)),pageRows=rows.slice(pageIndex*30,pageIndex*30+30);
-  return <div id={`sector-detail-${encodeURIComponent(group.name)}`} className="board-detail"><div className="board-detail-heading"><div><small>行业板块详情</small><h3>{group.name}</h3></div><button className="text-link" onClick={onClose}>收起</button></div>
+  return <div id={`sector-detail-${encodeURIComponent(group.name)}`} className="board-detail"><div className="board-detail-heading"><div><small>行业板块详情</small><h3>{group.name}</h3></div><button className="text-link" onClick={onClose}>收起本排</button></div>
     <SectorDecision sector={sector}/>
     <div className="sector-overview"><div><b className={(group.averagePct??0)<0?"down":"up"}>{pct(group.averagePct)}</b><small>等权平均涨幅</small></div><div><b><em className="up">{group.up}</em> / <em className="down">{group.down}</em> / {group.flat}</b><small>涨 / 跌 / 平</small></div><div><b>{group.amountYi.toFixed(1)} 亿</b><small>板块成交额</small></div></div>
     <div className="sector-breadth" aria-label={`上涨${group.up}，下跌${group.down}，平盘${group.flat}，无行情${group.total-group.traded}`}><i style={{width:`${group.total?group.up/group.total*100:0}%`,background:"#ed7580"}}/><i style={{width:`${group.total?group.flat/group.total*100:0}%`,background:"#75859c"}}/><i style={{width:`${group.total?group.down/group.total*100:0}%`,background:"#48b79c"}}/></div>

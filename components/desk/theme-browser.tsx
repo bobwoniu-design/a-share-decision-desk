@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { Factors, PhaseTag } from "./decision";
 import { memberRoles } from "@/lib/member-roles";
 import type { SectorMember } from "@/lib/sectors";
@@ -22,14 +22,14 @@ export function ThemeBrowser({date,mode,onSelect}:{date:string;mode:"close"|"liv
   const visible=themes.filter(t=>(filter==="全部"||t.label===filter)&&(!query||`${t.name}${t.code}`.toLowerCase().includes(query.trim().toLowerCase())));
   const shownThemes=visible.slice(0,shown);
   const cardRows=Array.from({length:Math.ceil(shownThemes.length/3)},(_,i)=>shownThemes.slice(i*3,i*3+3));
-  const toggle=(code:string)=>setExpanded(current=>current.includes(code)?current.filter(c=>c!==code):[...current,code]);
+  const toggleRow=(row:ScoredTheme[])=>{const codes=row.map(t=>t.code);setExpanded(current=>current.includes(codes[0])?current.filter(c=>!codes.includes(c)):[...new Set([...current,...codes])]);};
   return <section className="panel theme-browser">
     {loading?<p className="history-small-empty" role="status">正在读取近7个交易日的概念快照并计算初筛…</p>:error?<div className="history-small-empty" role="alert">{error}<button className="text-link" onClick={()=>setRetry(v=>v+1)}>重试</button></div>:overview&&<>
       <div className="board-toolbar"><div className="board-filter-tabs" aria-label="按题材定位筛选">{filters.map(label=><button key={label} className={filter===label?"active":""} aria-pressed={filter===label} onClick={()=>{setFilter(label);setShown(60);setExpanded([]);}}>{label}<span>{label==="全部"?themes.length:themes.filter(t=>t.label===label).length}</span></button>)}</div><input aria-label="搜索题材" placeholder="搜索题材名称 / 代码" value={query} onChange={e=>{setQuery(e.target.value);setShown(60);setExpanded([]);}}/></div>
-      <div className="board-results">显示 {Math.min(shown,visible.length)} / {visible.length} 个概念 · 强度分与主线资格分别计算；可同时展开多个板块</div>
+      <div className="board-results">显示 {Math.min(shown,visible.length)} / {visible.length} 个概念 · 点击任一卡片，同时展开本排板块详情</div>
       <div className="board-rows">{cardRows.map(row=><div key={row[0].code} className="board-row"><div className="board-row-cards">
-        {row.map(t=><div key={t.code} className="board-column"><button className={`board-card ${expanded.includes(t.code)?"selected":""}`} aria-expanded={expanded.includes(t.code)} onClick={()=>toggle(t.code)}><span className="board-card-top"><b>{t.name}</b><em className={`board-label board-label-${t.label==="退潮"?"risk":t.label==="主线初筛"?"main":t.label==="主线候选"?"candidate":"neutral"}`}>{t.label}</em></span><span className="board-card-score"><strong>{number(t.score)}</strong><small className={(t.delta??0)<0?"down":"up"}>{t.delta===null?"较前日 —":`${t.delta>=0?"↑ ":"↓ "}${signed(t.delta)}`}</small></span><span className="board-card-meta"><span className={(t.pct??0)<0?"down":"up"}>{percent(t.pct)}</span><span>强势 {t.topDays}/5</span><span>{t.phase}</span></span><span className="board-card-foot">近5日 {percent(t.return5)} · 主线资格 {t.qualification.status} · 上涨 {t.up??"—"} / 下跌 {t.down??"—"}</span></button>
-          {expanded.includes(t.code)&&<ThemeDetailView theme={t} date={date} mode={mode} asOfDate={overview.asOfDate} onClose={()=>toggle(t.code)} onSelect={onSelect}/>}
+        {row.map(t=><div key={t.code} className="board-column"><button className={`board-card ${expanded.includes(t.code)?"selected":""}`} aria-expanded={expanded.includes(t.code)} onClick={()=>toggleRow(row)}><span className="board-card-top"><b>{t.name}</b><em className={`board-label board-label-${t.label==="退潮"?"risk":t.label==="主线初筛"?"main":t.label==="主线候选"?"candidate":"neutral"}`}>{t.label}</em></span><span className="board-card-score"><strong>{number(t.score)}</strong><small className={(t.delta??0)<0?"down":"up"}>{t.delta===null?"较前日 —":`${t.delta>=0?"↑ ":"↓ "}${signed(t.delta)}`}</small></span><span className="board-card-meta"><span className={(t.pct??0)<0?"down":"up"}>{percent(t.pct)}</span><span>强势 {t.topDays}/5</span><span>{t.phase}</span></span><span className="board-card-foot">近5日 {percent(t.return5)} · 主线资格 {t.qualification.status} · 上涨 {t.up??"—"} / 下跌 {t.down??"—"}</span></button>
+          {expanded.includes(t.code)&&<ThemeDetailView theme={t} date={date} mode={mode} asOfDate={overview.asOfDate} onClose={()=>toggleRow(row)} onSelect={onSelect}/>}
         </div>)}
       </div></div>)}</div>
       {!visible.length&&<p className="history-small-empty">当前筛选下没有题材。</p>}
@@ -42,14 +42,12 @@ export function ThemeBrowser({date,mode,onSelect}:{date:string;mode:"close"|"liv
 function ThemeDetailView({theme,date,mode,asOfDate,onClose,onSelect}:{theme:ScoredTheme;date:string;mode:"close"|"live";asOfDate:string;onClose:()=>void;onSelect:(stock:SectorMember,themeCode:string)=>void}){
   const [detail,setDetail]=useState<ThemeDetail|null>(null),[error,setError]=useState(""),[loading,setLoading]=useState(true),[retry,setRetry]=useState(0);
   const [query,setQuery]=useState(""),[filter,setFilter]=useState("all"),[page,setPage]=useState(0);
-  const root=useRef<HTMLDivElement>(null);
-  useEffect(()=>{root.current?.scrollIntoView({behavior:"smooth",block:"nearest"});},[]);
   useEffect(()=>{const c=new AbortController();setDetail(null);setError("");setLoading(true);
     fetch(`/api/market/themes?view=detail&date=${date}&mode=${mode}&code=${theme.code}`,{signal:c.signal,cache:"no-store"}).then(async r=>{const d=await r.json() as ThemeDetail&{error?:string};if(!r.ok)throw new Error(d.error||"题材成员读取失败");return d;}).then(d=>{if(!c.signal.aborted)setDetail(d);}).catch(e=>{if(!c.signal.aborted)setError(e instanceof Error?e.message:"题材成员读取失败");}).finally(()=>{if(!c.signal.aborted)setLoading(false);});return()=>c.abort();
   },[theme.code,date,mode,retry]);
   const rows=(detail?.group.members??[]).filter(m=>(!query||`${m.name}${m.code}`.toLowerCase().includes(query.trim().toLowerCase()))&&(filter==="all"||filter==="up"&&m.limit==="U"||filter==="down"&&m.quote!==null&&m.quote.pct<0||filter==="missing"&&!m.quote));
   const pageIndex=Math.min(page,Math.max(0,Math.ceil(rows.length/30)-1));
-  return <div ref={root} className="board-detail theme-detail"><div className="board-detail-heading"><div><small>{theme.code} · {asOfDate} · {theme.label}</small><h3>{theme.name} <PhaseTag phase={theme.phase}/></h3></div><button className="text-link" onClick={onClose}>收起</button></div>
+  return <div className="board-detail theme-detail"><div className="board-detail-heading"><div><small>{theme.code} · {asOfDate} · {theme.label}</small><h3>{theme.name} <PhaseTag phase={theme.phase}/></h3></div><button className="text-link" onClick={onClose}>收起本排</button></div>
     <div className="theme-score-summary"><strong>{number(theme.score)}<small>/100 强度</small></strong><span>较前日 {signed(theme.delta)} · 当日 {percent(theme.pct)} · 近5日 {percent(theme.return5)}</span><span>上涨 {theme.up??"—"} / 下跌 {theme.down??"—"} · 换手 {theme.turnover===null?"—":`${number(theme.turnover,2)}%`}</span></div>
     <div className="theme-qualification"><b>主线资格：{theme.qualification.status}</b><span>{theme.label} · 需逐项核对，不由强度分直接决定</span><div>{theme.qualification.checks.map(c=><p key={c.name}><strong className={c.result==="通过"?"up":c.result==="未通过"?"down":"muted"}>{c.result}</strong><b>{c.name}</b><span>{c.detail}</span></p>)}</div></div>
     <details className="engine-method" open><summary>强度评分依据与近7日变化</summary><Factors factors={theme.factors}/><div className="market-cycle-history">{theme.history.map(p=><span key={p.date}><small>{p.date.slice(5)}</small><b>{percent(p.pct,1)}</b><span>{p.phase}</span></span>)}</div><p>阶段依据收盘规则分变化，非盘中分钟状态；主线初筛仍需核实催化和真实龙头地位。</p></details>
