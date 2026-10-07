@@ -15,7 +15,7 @@ import { CandidateExplanation } from "./funnel-browser";
 import { StockResearch } from "./stock-research";
 import { StockDetailCard } from "./stock-detail-card";
 import { BoardBrowser } from "./board-browser";
-import type { DragonTigerDay } from "@/lib/dragon-tiger";
+import type { LimitUpDay } from "@/lib/limit-up";
 import { ValidationPanel } from "./validation-panel";
 import type { FunnelCandidate } from "@/lib/funnel";
 export type MarketNavigation={mode:"close"|"live";date:string;code:string;themeCode?:string;selectedStock?:HistoryStock};
@@ -27,7 +27,7 @@ export function HistoricalMarket({view,navigation,onNavigationChange,onSelectSto
   const [stockOpen,setStockOpen]=useState(false);
   const [expandedSource,setExpandedSource]=useState<"candidate"|"personal"|"external">("candidate");
   const decision=useDecision<DecisionOverview>(view==="overview"?`/api/market/decision?date=${date}&mode=${mode}`:null,view==="overview"&&mode==="live");
-  const dragonTiger=useDecision<DragonTigerDay>(view==="selection"&&mode==="close"?`/api/market/dragon-tiger?date=${date}`:null);
+  const limitUp=useDecision<LimitUpDay>(view==="selection"&&mode==="close"?`/api/market/limit-up?date=${date}`:null);
   const positions=calculate(ledger.trades).positions;
   const heldCodes=new Set(positions.map(p=>p.code));
   const watchedCodes=new Set(ledger.watchlist.map(p=>p.code));
@@ -45,7 +45,7 @@ export function HistoricalMarket({view,navigation,onNavigationChange,onSelectSto
     {view==="selection"&&<div className="selection-list">
       {stockOpen&&expandedSource==="external"&&stock&&<section className="selection-standalone-detail"><SelectionStockDetail key={`${date}:${code}:${navigation.themeCode??""}`} stock={stock} date={date} mode={mode} themeCode={navigation.themeCode} showPreview onClose={()=>setStockOpen(false)}/></section>}
       <FunnelBrowser
-        date={date} mode={mode} dragonTiger={dragonTiger} personal={personal} personalCandles={personalCandles.data}
+        date={date} mode={mode} limitUp={limitUp} personal={personal} personalCandles={personalCandles.data}
         expandedCode={stockOpen?code:null} expandedSource={expandedSource}
         onSelect={c=>openStock({code:c.code,themeCode:c.theme?.code,selectedStock:{code:c.code,name:c.name}},"candidate")}
         onSelectPersonal={p=>openStock({code:p.code,themeCode:undefined,selectedStock:{code:p.code,name:p.name}},"personal")}

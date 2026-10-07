@@ -1377,9 +1377,9 @@ input[type="datetime-local"] {
 .selection-personal-wrap{overflow-x:auto}
 .selection-personal-table{width:100%;min-width:520px}
 .selection-personal-table td{vertical-align:middle}
-.dragon-tiger-badge{display:inline-block;padding:3px 8px;border:1px solid #c69c5d;border-radius:4px;background:#4b3827;color:#ffe1aa;font-size:12px;font-weight:700;white-space:nowrap}
-.dragon-tiger-muted{color:#8da5c3;font-size:12px;white-space:nowrap}
-.dragon-tiger-retry{border:0;background:none;padding:0;color:#d5ae78;font-size:12px;cursor:pointer;white-space:nowrap;text-decoration:underline;text-underline-offset:2px}
+.limit-up-badge{display:inline-block;padding:3px 8px;border:1px solid #bc7779;border-radius:4px;background:#512b36;color:#ffd1d5;font-size:12px;font-weight:700;white-space:nowrap}
+.limit-up-muted{color:#8da5c3;font-size:12px;white-space:nowrap}
+.limit-up-retry{border:0;background:none;padding:0;color:#d5ae78;font-size:12px;cursor:pointer;white-space:nowrap;text-decoration:underline;text-underline-offset:2px}
 .funnel-secondary-filters{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;padding:8px 12px;border-top:1px solid #283b54;border-bottom:1px solid #283b54;color:#aebfda;font-size:13px}
 .funnel-secondary-filters label,.funnel-secondary-filters form{display:flex;align-items:center;gap:7px}
 .funnel-secondary-filters select,.funnel-secondary-filters input{background:#111d30;border:1px solid #344963;border-radius:5px;color:#e1edfc;padding:7px 9px;font-size:13px}
