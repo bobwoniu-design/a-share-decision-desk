@@ -19,10 +19,15 @@ async function basicRows(warnings:string[]){
   return rows;
 }
 async function closeDay(date:string,basic:Row[],warnings:string[],boardCheck=false):Promise<DecisionDay>{
-  const d=date.replaceAll("-",""),packet=await tushare("daily",{trade_date:d},"ts_code,trade_date,close,pre_close,pct_chg,amount");
+  const d=date.replaceAll("-",""),[dailyResult,limitResult]=await Promise.allSettled([
+    tushare("daily",{trade_date:d},"ts_code,trade_date,close,pre_close,pct_chg,amount"),
+    tushare("limit_list_d",{trade_date:d},limitFields,2500)
+  ]);
+  if(dailyResult.status==="rejected")throw dailyResult.reason;
+  const packet=dailyResult.value;
   if(!packet.rows.length)throw new MarketError(`${date} 日线缺失，不能跨过缺失日计算持续性`);
   const prices=dailyRows(packet.rows,date);let limits:Row[]|null=null;
-  try{limits=(await tushare("limit_list_d",{trade_date:d},limitFields,2500)).rows;if(limits.some(r=>r.trade_date!==d))throw new Error("涨跌停日期不一致");}catch(e){limits=null;warnings.push(`${date}：${e instanceof Error?e.message:"涨跌停数据缺失"}`);}
+  try{if(limitResult.status==="rejected")throw limitResult.reason;limits=limitResult.value.rows;if(limits.some(r=>r.trade_date!==d))throw new Error("涨跌停日期不一致");}catch(e){limits=null;warnings.push(`${date}：${e instanceof Error?e.message:"涨跌停数据缺失"}`);}
   let board:ReturnType<typeof boardEvidence>|null=null;
   if(limits&&boardCheck){
     const optional=async(api:string,fields:string)=>{try{return (await tushare(api,{trade_date:d},fields,2000)).rows;}catch(e){warnings.push(`${date} ${api}：${e instanceof Error?e.message:"不可用"}`);return null;}};

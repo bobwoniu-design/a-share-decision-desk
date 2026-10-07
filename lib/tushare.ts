@@ -40,18 +40,20 @@ export async function tushare(api:string,params:Record<string,unknown>,fields:st
 const limitFields="ts_code,trade_date,name,industry,limit,limit_times,close,pct_chg";
 export async function marketSnapshot(date:string):Promise<MarketSnapshot>{
   const d=date.replaceAll("-","");
-  const daily=await tushare("daily",{trade_date:d},"ts_code,trade_date,close,pre_close,pct_chg,amount");
-  if(!daily.rows.length) throw new MarketError(`${date} 没有返回日线数据。请核对年份、交易日期和数据权限；系统不会换用其他日期。`);
-  const prices=dailyRows(daily.rows,date),warnings:string[]=[],sources=[{api:"daily",rows:daily.rows.length,fetchedAt:daily.fetchedAt}];
+  const warnings:string[]=[],sources:{api:string;rows:number;fetchedAt:string}[]=[];
   async function optional(api:string,params:Record<string,unknown>,fields:string,cap=6000){
     try{const p=await tushare(api,params,fields,cap);sources.push({api,rows:p.rows.length,fetchedAt:p.fetchedAt});return p.rows;}
     catch(e){warnings.push(e instanceof MarketError?e.message:`${api} 暂时不可用`);return null;}
   }
-  const [limitRows,basic,calendar]=await Promise.all([
+  const [daily,limitRows,basic,calendar]=await Promise.all([
+    tushare("daily",{trade_date:d},"ts_code,trade_date,close,pre_close,pct_chg,amount"),
     optional("limit_list_d",{trade_date:d},limitFields,2500),
     optional("stock_basic",{list_status:"L"},"ts_code,name"),
     optional("trade_cal",{exchange:"SSE",start_date:d,end_date:d},"cal_date,is_open,pretrade_date")
   ]);
+  if(!daily.rows.length) throw new MarketError(`${date} 没有返回日线数据。请核对年份、交易日期和数据权限；系统不会换用其他日期。`);
+  const prices=dailyRows(daily.rows,date);
+  sources.unshift({api:"daily",rows:daily.rows.length,fetchedAt:daily.fetchedAt});
   if(limitRows?.some(r=>r.trade_date!==d))throw new MarketError("涨跌停数据日期不一致");
   const nameMap=new Map((basic??[]).map(r=>[String(r.ts_code),String(r.name)]));
   const limitMap=new Map((limitRows??[]).map(r=>[String(r.ts_code),r]));

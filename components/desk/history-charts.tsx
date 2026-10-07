@@ -16,7 +16,7 @@ function useHistory<T>(url:string|null){
 // Missing dates break lines rather than joining across unavailable market data.
 function paths(values:(number|null)[],x:(i:number)=>number,y:(v:number)=>number){return values.map((v,i)=>v===null?"":`${i&&values[i-1]!==null?"L":"M"}${x(i)},${y(v)}`).join(" ");}
 export function MarketHistory({date,onDate}:{date:string;onDate:(date:string)=>void}){
-  const [days,setDays]=useState(20),[metric,setMetric]=useState<"limits"|"amount"|"premium">("limits");
+  const [days,setDays]=useState(7),[metric,setMetric]=useState<"limits"|"amount"|"premium">("limits");
   const {data,error,busy,retry}=useHistory<MarketTimeline>(`/api/market/context?view=timeline&date=${date}&days=${days}`);
   const rows=data?.dates.map(d=>data.points.find(p=>p.date===d)??null)??[];
   const series=metric==="limits"?[{name:"涨停家数",color:"#f87171",values:rows.map(p=>p?.limits?.up??null)},{name:"跌停家数",color:"#34d399",values:rows.map(p=>p?.limits?.down??null)}]:metric==="amount"?[{name:"沪深成交额 / 亿元",color:"#77aaff",values:rows.map(p=>p?.coverage.amountYi??null)}]:[{name:"昨日涨停溢价 / %",color:"#fbbf24",values:rows.map(p=>p?.premium?.value??null)}];
