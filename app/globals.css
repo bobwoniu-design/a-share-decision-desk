@@ -1555,3 +1555,29 @@ input[type="datetime-local"] {
 .stock-chart-tabs{width:100%;min-width:0}.stock-chart-toolbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:7px 9px;border-bottom:1px solid #314763;background:#14243a;color:#9eb4d1;font-size:12px}.stock-chart-periods{display:flex;gap:3px}.stock-chart-periods button{padding:6px 14px;border:1px solid transparent;border-radius:4px;color:#a3b9d4;cursor:pointer}.stock-chart-periods button:hover,.stock-chart-periods button.active{color:#eef6ff;background:#274569;border-color:#618cc0}.stock-chart-toolbar>span{margin-left:auto}.stock-chart-zoom{padding:6px 9px;border:1px solid #3a5a80;border-radius:4px;background:#1a3452;color:#b8d8ff;cursor:zoom-in}.stock-chart-zoom:hover{background:#29496d}.stock-chart-toolbar button:focus-visible{outline:2px solid #91bcf1;outline-offset:2px}.stock-chart-tabs .instrument-history{width:100%}.stock-chart-tabs .chart-panel,.stock-chart-tabs .minute-decision{margin:0}.stock-chart-tabs .minute-chart-inline{padding:5px 8px;border-bottom:1px solid #2d405a}.stock-chart-tabs .minute-chart-inline .price-chart{width:100%;height:auto;min-height:0;padding:0}.stock-chart-tabs .minute-chart-inline .replay-control{padding:4px 6px 9px}.stock-chart-dialog,.funnel-candle-dialog{width:96vw;max-width:1280px;max-height:92vh;overflow:auto}.stock-chart-dialog .stock-chart-tabs,.funnel-candle-dialog .stock-chart-tabs{width:100%}.stock-chart-modal-body{min-width:0}.stock-chart-dialog .daily-candle-svg,.funnel-candle-dialog .daily-candle-svg{width:100%;max-height:58vh}.stock-chart-dialog .price-chart,.funnel-candle-dialog .price-chart{width:100%;max-height:58vh;min-height:0;padding:0}.stock-chart-dialog .minute-state-heading,.funnel-candle-dialog .minute-state-heading{padding:8px 10px}.stock-chart-dialog .minute-phase-explainer,.funnel-candle-dialog .minute-phase-explainer{padding:5px 10px}
 @media(max-width:650px){.stock-chart-toolbar{gap:6px}.stock-chart-toolbar>span{order:3;width:100%;margin-left:0}.stock-chart-periods button{padding:6px 10px}.stock-chart-zoom{margin-left:auto}}
 .stock-chart-tabs .chart-panel>.panel-head,.stock-chart-tabs .minute-decision>.panel-head{display:none}
+
+/* Keep the engine to its two distinct questions: market score and current judgment. */
+.decision-header .market-decision{grid-template-columns:minmax(0,1.15fr) minmax(0,1fr)}
+.decision-header .emotion-score{border-right:1px solid #31435d;border-bottom:0}
+.decision-header .market-verdict{grid-column:auto;border-top:0}
+.market-emotion-top.has-chart{grid-template-columns:minmax(115px,165px) minmax(0,1fr);gap:16px}
+.market-emotion-top .market-index-mini{max-width:480px;padding:7px 9px}
+.market-emotion-top .market-index-mini svg{height:auto;aspect-ratio:4/1}
+.market-emotion-top .market-index-mini>small{padding:28px 0;font-size:13px}
+.market-score-dialog{width:min(900px,calc(100vw - 32px));max-width:900px!important;font-size:16px;line-height:1.6}
+.market-score-dialog [data-slot="dialog-title"]{font-size:22px;line-height:1.35}
+.market-score-dialog [data-slot="dialog-description"]{font-size:15px;line-height:1.5}
+.market-score-dialog .research-body{font-size:16px;line-height:1.65}
+.market-score-dialog .research-body h3{font-size:18px;margin:22px 0 10px}
+.market-score-dialog .research-body p{margin:10px 0}
+.market-score-lead{display:flex;align-items:baseline;gap:16px;flex-wrap:wrap;color:#dceafb}
+.market-score-lead strong{font-size:38px;line-height:1;color:#aaccff}
+.market-score-lead strong small{font-size:17px;color:#97abc6;font-weight:400}
+.market-score-note{color:#a9bbd3}
+.market-score-dialog .factor-list{gap:13px}
+.market-score-dialog .factor-list>div{grid-template-columns:145px minmax(80px,125px) 36px minmax(0,1fr);gap:12px}
+.market-score-dialog .factor-list label,.market-score-dialog .factor-list>div>span{font-size:15px;line-height:1.5}
+.market-score-dialog .factor-list label>small{font-size:13px}
+.market-score-dialog .factor-list b{font-size:17px}
+.market-score-dialog .factor-bar{height:8px}
+@media(max-width:720px){.decision-header .market-decision{grid-template-columns:1fr}.decision-header .emotion-score{border-right:0;border-bottom:1px solid #31435d}.decision-header .market-verdict{grid-column:auto;border-top:0}.market-emotion-top.has-chart{grid-template-columns:minmax(110px,150px) minmax(0,1fr)}.market-score-dialog .factor-list>div{grid-template-columns:110px minmax(60px,1fr) 36px}.market-score-dialog .factor-list>div>span{grid-column:1/-1}}
