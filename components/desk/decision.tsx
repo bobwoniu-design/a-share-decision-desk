@@ -70,7 +70,7 @@ export function MarketScoreMethod({data}:{data:DecisionOverview|null}){
 export function SectorDecision({sector}:{sector:ScoredSector|undefined}){
   if(!sector)return <p className="history-caption">板块评分正在加载，未用涨幅代替综合分。</p>;
   return <div className="sector-decision"><div className="sector-score-head"><span><b>{sector.name}</b> · {sector.label}</span><strong>{number(sector.score)} <em className={(sector.delta??0)<0?"down":"up"}>{sign(sector.delta)}</em></strong><PhaseTag phase={sector.phase}/></div>
-    <div className="industry-qualification"><b>主线资格：{sector.qualification.status}</b><span>资格门槛与强度分独立计算，下面合并展示</span><QualificationScoreCards checks={sector.qualification.checks} factors={sector.factors} aliases={{"当日相对强度":"相对强度","涨停梯队":"梯队"}}/></div>
+    <div className="industry-qualification"><b>主线资格（行业口径）：{sector.qualification.status}</b><span>按股票行业分类及行业成员行情核对；行业强度分与题材强度分不直接比较。涨停梯队既是资格门槛，也是行业强度因子（15%）。</span><QualificationScoreCards checks={sector.qualification.checks} factors={sector.factors} aliases={{"当日相对强度":"相对强度","涨停梯队":"梯队"}}/></div>
     <details className="engine-method" open><summary>近7日变化与阶段说明</summary><p>这里是收盘/快照阶段；分钟状态在右侧随个股同步回放。行业代理不等同于概念题材。日级阶段：分数＜35或较昨日下降≥15为转弱；下降≥7为分歧；分歧/转弱后回升≥3为承接；承接后分≥65且上升≥3为转强；强势阶段分≥80且上升≥4为加速；其余≥65为一致。</p><div className="market-cycle-history">{sector.history.slice(-7).map(h=><span key={h.date}><small>{h.date.slice(5)}</small><b>{number(h.score)}</b><span>{h.phase}</span></span>)}</div></details>
   </div>;
 }
