@@ -1347,6 +1347,18 @@ input[type="datetime-local"] {
 .funnel-context{display:flex;align-items:center;gap:11px;padding:11px 13px;border-bottom:1px solid #2b405a;color:#bbd0ea;font-size:13px;flex-wrap:wrap}.funnel-context b{color:#f2d998}.funnel-context small{margin-left:auto;color:#91a9c7;font-size:12px}
 .funnel-filters{padding:9px 12px}.funnel-table-wrap{overflow-x:auto}.funnel-table{min-width:760px}.funnel-table td{vertical-align:middle}.funnel-table td small{display:block;color:#8da5c3;font-size:12px;margin-top:3px}.funnel-table td b{color:#d7e8fc}.funnel-status{display:inline-block;padding:3px 7px;border:1px solid #526985;border-radius:4px;color:#a8bfda;white-space:nowrap}.funnel-status.focus{border-color:#5fae90;color:#8fe0bd}
 .funnel-explain{padding:12px 14px;border-top:1px solid #304662;background:#14243a}.funnel-explain>div:first-child{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}.funnel-explain>div:first-child b{font-size:15px;color:#e6f0fe}.funnel-explain>div:first-child span,.funnel-explain>small{color:#9db5d0;font-size:12px}.funnel-explain-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:11px;margin-top:10px}.funnel-explain-grid section{padding:10px;background:#1a2c45;border:1px solid #314a67;border-radius:6px}.funnel-explain-grid small{color:#8ebbea;font-size:12px}.funnel-explain-grid p{color:#c4d5e9;font-size:13px;margin:7px 0 0;line-height:1.4}
+.selection-list{display:flex;flex-direction:column;gap:12px;min-width:0}
+.selection-list .funnel-table{min-width:900px}
+.selection-personal-tools{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;padding:10px 13px;border-bottom:1px solid #2b405a}
+.selection-personal-tools form{display:flex;align-items:center;gap:7px}
+.selection-personal-tools input{width:170px;max-width:50vw;padding:7px 9px;background:#111d30;border:1px solid #344963;border-radius:5px;color:#e1edfc}
+.selection-personal-wrap{overflow-x:auto}
+.selection-personal-table{width:100%;min-width:520px}
+.selection-personal-table td{vertical-align:middle}
+.stock-detail-dialog{width:min(96vw,1280px);max-height:92vh;overflow-y:auto}
+.stock-detail-dialog .funnel-explain{border:1px solid #304662;border-radius:7px}
+.stock-detail-content{display:flex;flex-direction:column;gap:12px;min-width:0}
+.stock-detail-content>.column{min-width:0}
 .minute-state-heading{grid-template-columns:repeat(3,minmax(0,1fr))}
 @media(max-width:950px){.funnel-explain-grid{grid-template-columns:1fr}}
 @media(max-width:850px){.minute-state-heading{grid-template-columns:repeat(2,minmax(0,1fr))}}
