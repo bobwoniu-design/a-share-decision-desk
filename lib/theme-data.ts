@@ -3,6 +3,8 @@ import { dailyRows, type Row } from "./market-data";
 import { sectorGroups, type SectorGroup } from "./sectors";
 import { marketDates, MarketError, tushare } from "./tushare";
 import { scoreThemeDays, withThemeLadder, type ThemeOverview } from "./themes";
+import {derivedCache} from "./derived-cache";
+import {chinaNow} from "./minute-engine";
 
 const indexFields="ts_code,trade_date,name,leading,leading_code,pct_change,leading_pct,total_mv,turnover_rate,up_num,down_num,idx_type";
 const memberFields="trade_date,ts_code,con_code,name";
@@ -12,11 +14,11 @@ export type ThemeDetail={date:string;asOfDate:string;mode:ThemeMode;code:string;
 
 const jobs=new Map<string,Promise<ThemeOverview>>();
 const memory=new Map<string,{until:number;value:ThemeOverview}>();
-export async function themeOverview(date:string,mode:ThemeMode):Promise<ThemeOverview>{
+export async function themeOverview(date:string,mode:ThemeMode,refresh=false):Promise<ThemeOverview>{
   const key=`${date}:${mode}`,cached=memory.get(key);
-  if(cached&&cached.until>Date.now())return cached.value;
+  if(!refresh&&cached&&cached.until>Date.now())return cached.value;
   if(jobs.has(key))return jobs.get(key)!;
-  const job=(async()=>{
+  const job=derivedCache(`theme-overview:${key}`,mode==="live"?30000:date===chinaNow().date?60000:7*86400000,async()=>{
     const calendar=await marketDates(date,mode==="live"?8:7);
     if(calendar.dates.at(-1)!==date)throw new MarketError(`${date} 不是已确认交易日`);
     const asOfDate=mode==="live"?calendar.dates.at(-2)!:date;
@@ -67,7 +69,7 @@ export async function themeOverview(date:string,mode:ThemeMode):Promise<ThemeOve
     const overview:ThemeOverview={date,asOfDate,mode,source:"Tushare dc_index · 东财概念",version:"THEME-0.2",themes,warnings,fetchedAt:new Date().toISOString()};
     memory.set(key,{until:Date.now()+300000,value:overview});
     return overview;
-  })();
+  },refresh);
   jobs.set(key,job);try{return await job;}finally{jobs.delete(key);}
 }
 

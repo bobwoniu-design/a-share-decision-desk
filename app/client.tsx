@@ -171,7 +171,7 @@ function Home() {
           <ShieldCheck size={13} /> 人工决策 · 无自动委托
         </span>
         <span>市场总览：环境与板块　/　选股与自选：个股分析</span>
-        <span>短线决策台 · v1.2 开发中</span>
+        <span>短线决策台 · v1.3 开发中</span>
       </footer>
       <TradeDialog />
       <SettingsDialog open={settingsOpen} setOpen={setSettingsOpen} />
@@ -193,6 +193,7 @@ function Home() {
             <div><span className="tag">本次发布</span><b>个人执行反馈 · v1.1</b><p>统计买卖理由、计划、自评及复盘完整度；完整平仓周期按执行情况和结果分类，期初持仓不参与原始买入评价。</p></div>
             <div><span className="tag">本次发布</span><b>打板证据与四维市场评分 · v1.2</b><p>核对连板天梯、封板明细及同花顺最强板块独立榜；市场分为赚钱广度、连板接力、封板质量和主线集中四组，并保留旧版分数对照。</p></div>
             <div><span className="tag">本次发布</span><b>盘中观察与60日环境检验 · v1.2</b><p>只有真实采集的盘中快照进入时间线；收盘页可按需读取80日数据，用20日预热、60日对照下一交易日市场表现。</p></div>
+            <div><span className="tag">本次发布</span><b>页面与个股加载提速 · v1.3</b><p>历史候选、题材与分钟结果复用已核验缓存；股票参照分钟线并行读取；日K与核心度依据改为按需加载。</p></div>
             <div><span className="tag">待开发</span><b>长期样本外信号验证与完整账户风险</b><p>60日环境对照不等于买卖信号回测；账户净值与回撤仍需现金流水和逐日估值。</p></div>
           </div>
           <p className="progress-note">分数与条件仍是待验证规则，买卖由你人工决定。</p>

@@ -65,8 +65,10 @@ export async function decisionData(date:string,mode:"close"|"live"="close",count
     if(mode==="live")days.push(await realtimeDay(date,basic,days.at(-1)!,warnings));
     warnings.push("当前使用股票行业分类识别主线代理，未覆盖概念题材；历史行业变更未还原。分数为可解释规则分，不是概率或已验证收益。");
     const overview=buildDecision(days,[...new Set(warnings)]),value={overview,days};
-    memory.clear();
-    memory.set(key,{until:Date.now()+(mode==="live"?45000:300000),value});return value;
+    for(const [old,entry] of memory)if(entry.until<=Date.now())memory.delete(old);
+    memory.set(key,{until:Date.now()+(mode==="live"?45000:300000),value});
+    while(memory.size>3)memory.delete(memory.keys().next().value!);
+    return value;
   })();jobs.set(key,job);try{return await job;}finally{jobs.delete(key);}
 }
 export async function realtimeMinutes(code:string,date:string){
@@ -101,8 +103,17 @@ export async function decisionMinutes(code:string,date:string,mode:"close"|"live
   }
   const group=prior.sectors.find(s=>s.cores.some(c=>c.code===code)),core=group?.cores.find(c=>c.code===code)??null;
   const preClose=references.get(code)??null;
+  const barJobs=new Map<string,Promise<{bars:Bar[];fetchedAt:string}>>();
+  const fetchMinutes=(c:string)=>{if(!barJobs.has(c))barJobs.set(c,mode==="live"?realtimeMinutes(c,date):marketMinutes(c,date));return barJobs.get(c)!;};
+  const mainPromise=fetchMinutes(code).catch(e=>{warnings.push(e instanceof Error?e.message:"个股分钟读取失败");return null;});
+  let floatShares:number|null=null,upLimit:number|null=null;
+  const metadata=Promise.all([
+    (async()=>{try{const p=await tushare("daily_basic",{ts_code:code,trade_date:prior.date.replaceAll("-","")},"ts_code,trade_date,float_share");const r=p.rows.find(r=>r.ts_code===code&&r.trade_date===prior.date.replaceAll("-","")),n=numeric(r?.float_share);if(n&&n>0)floatShares=n*10000;else warnings.push("前一交易日流通股本缺失，换手指标留空");}catch(e){warnings.push(e instanceof Error?e.message:"流通股本读取失败");}})(),
+    (async()=>{try{const p=await tushare("stk_limit",{ts_code:code,trade_date:date.replaceAll("-","")},"ts_code,trade_date,up_limit,down_limit",5800);const r=p.rows.find(r=>r.ts_code===code&&r.trade_date===date.replaceAll("-", ""));upLimit=numeric(r?.up_limit);}catch(e){warnings.push(e instanceof Error?e.message:"涨停价格读取失败");}})()
+  ]);
   // Freeze constituents and roles before the session; exclude the selected stock from confirmation.
   const peersWanted=group?group.cores.filter(c=>c.code!==code).sort((a,b)=>(a.roles[0]==="观察成员"?1:0)-(b.roles[0]==="观察成员"?1:0)||(b.score??-1)-(a.score??-1)).slice(0,6):[];
+  peersWanted.forEach(p=>{void fetchMinutes(p.code).catch(()=>undefined);});
   let themeAllowed:boolean|null=null,themeBasis:MinuteBundle["themeBasis"]=null,themePeersWanted:CoreStock[]=[];
   if(themeCode){
     try{
@@ -123,21 +134,12 @@ export async function decisionMinutes(code:string,date:string,mode:"close"|"live
       }
     }catch(e){warnings.push(`题材历史归属无法核对：${e instanceof Error?e.message:"数据缺失"}`);}
   }else warnings.push("尚未选择题材；价格状态可查看，三笔条件提示等待题材确认");
-  const barJobs=new Map<string,Promise<{bars:Bar[];fetchedAt:string}>>();
-  const fetchMinutes=(c:string)=>{if(!barJobs.has(c))barJobs.set(c,mode==="live"?realtimeMinutes(c,date):marketMinutes(c,date));return barJobs.get(c)!;};
-  let main:{bars:Bar[];fetchedAt:string}|null=null;
-  try{main=await fetchMinutes(code);}catch(e){warnings.push(e instanceof Error?e.message:"个股分钟读取失败");}
-  const peers:PeerSeries[]=[];
-  for(let i=0;i<peersWanted.length;i+=2){const batch=peersWanted.slice(i,i+2);const results=await Promise.allSettled(batch.map(p=>fetchMinutes(p.code)));results.forEach((r,j)=>{const p=batch[j],base=references.get(p.code);const error=r.status==="rejected"?(r.reason instanceof Error?r.reason.message:"分钟读取失败"):!base?"缺少当日前收盘价":undefined;peers.push({code:p.code,name:p.name,preClose:base??0,bars:r.status==="fulfilled"&&base?r.value.bars:[],error});if(error)warnings.push(`${p.name}：${error}`);});}
-  const themePeers:PeerSeries[]=[];
-  for(let i=0;i<themePeersWanted.length;i+=2){const batch=themePeersWanted.slice(i,i+2),results=await Promise.allSettled(batch.map(p=>fetchMinutes(p.code)));
-    results.forEach((r,j)=>{const p=batch[j],base=references.get(p.code),error=r.status==="rejected"?(r.reason instanceof Error?r.reason.message:"题材分钟读取失败"):!base?"缺少当日前收盘价":undefined;
-      themePeers.push({code:p.code,name:p.name,preClose:base??0,bars:r.status==="fulfilled"&&base?r.value.bars:[],error});if(error)warnings.push(`${p.name}：${error}`);});}
-  let floatShares:number|null=null,upLimit:number|null=null;
-  await Promise.all([
-    (async()=>{try{const p=await tushare("daily_basic",{ts_code:code,trade_date:prior.date.replaceAll("-","")},"ts_code,trade_date,float_share");const r=p.rows.find(r=>r.ts_code===code&&r.trade_date===prior.date.replaceAll("-","")),n=numeric(r?.float_share);if(n&&n>0)floatShares=n*10000;else warnings.push("前一交易日流通股本缺失，换手指标留空");}catch(e){warnings.push(e instanceof Error?e.message:"流通股本读取失败");}})(),
-    (async()=>{try{const p=await tushare("stk_limit",{ts_code:code,trade_date:date.replaceAll("-","")},"ts_code,trade_date,up_limit,down_limit",5800);const r=p.rows.find(r=>r.ts_code===code&&r.trade_date===date.replaceAll("-",""));upLimit=numeric(r?.up_limit);}catch(e){warnings.push(e instanceof Error?e.message:"涨停价格读取失败");}})()
-  ]);
+  const wanted=[...new Map([...peersWanted,...themePeersWanted].map(p=>[p.code,p])).keys()];
+  const outcomes=new Map<string,PromiseSettledResult<{bars:Bar[];fetchedAt:string}>>();
+  for(let i=0;i<wanted.length;i+=6){const batch=wanted.slice(i,i+6),results=await Promise.allSettled(batch.map(fetchMinutes));results.forEach((r,j)=>outcomes.set(batch[j],r));}
+  const asPeer=(p:CoreStock,source:string):PeerSeries=>{const result=outcomes.get(p.code),base=references.get(p.code),error=result?.status==="rejected"?(result.reason instanceof Error?result.reason.message:`${source}分钟读取失败`):!base?"缺少当日前收盘价":undefined;if(error)warnings.push(`${p.name}：${error}`);return {code:p.code,name:p.name,preClose:base??0,bars:result?.status==="fulfilled"&&base?result.value.bars:[],error};};
+  const peers=peersWanted.map(p=>asPeer(p,"行业")),themePeers=themePeersWanted.map(p=>asPeer(p,"题材"));
+  const [main]=await Promise.all([mainPromise,metadata]);
   if(!group)warnings.push("前一日未找到该股所属行业与核心评分，主线条件保持未知");
   const stale=mode==="live"&&!minuteFresh(date,main?.bars.at(-1)?.time);
   if(stale)warnings.push("分钟行情延迟或缺失，暂停当前辅助信号");

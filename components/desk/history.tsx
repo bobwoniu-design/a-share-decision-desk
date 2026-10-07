@@ -23,13 +23,13 @@ export function HistoricalMarket({view,navigation,onNavigationChange,onSelectSto
   const [sectorFocus,setSectorFocus]=useState({name:"",serial:0}),[historyOpen,setHistoryOpen]=useState(false);
   const [dimension,setDimension]=useState<"theme"|"industry">("theme");
   const [snapshot,setSnapshot]=useState<MarketSnapshot|null>(null),[busy,setBusy]=useState(true),[error,setError]=useState(""),[retry,setRetry]=useState(0),[query,setQuery]=useState("");
-  const decision=useDecision<DecisionOverview>(`/api/market/decision?date=${date}&mode=${mode}`,mode==="live");
+  const decision=useDecision<DecisionOverview>(view==="overview"?`/api/market/decision?date=${date}&mode=${mode}`:null,view==="overview"&&mode==="live");
   useEffect(()=>{
     const controller=new AbortController();setBusy(true);setSnapshot(null);setError("");
-    if(mode==="live"){setBusy(false);return()=>controller.abort();}
+    if(mode==="live"||view!=="overview"){setBusy(false);return()=>controller.abort();}
     fetch(`/api/market/history?date=${date}`,{signal:controller.signal,cache:"no-store"}).then(async r=>{const d=await r.json() as MarketSnapshot & {error?:string};if(!r.ok)throw new Error(d.error||"当日行情读取失败");return d;}).then(d=>{if(!controller.signal.aborted)setSnapshot(d);}).catch(e=>{if(!controller.signal.aborted)setError(e.message);}).finally(()=>{if(!controller.signal.aborted)setBusy(false);});
     return()=>controller.abort();
-  },[date,retry,mode,onNavigationChange]);
+  },[date,retry,mode,onNavigationChange,view]);
   const personal=[...new Map([...calculate(ledger.trades).positions,...ledger.watchlist].map(p=>[p.code,{code:p.code,name:p.name}])).values()];
   const stock=(selectedStock?.code===code?selectedStock:undefined)??snapshot?.candidates.find(s=>s.code===code)??personal.find(s=>s.code===code)??(code?{code,name:code}:undefined),stats=snapshot?.coverage,l=snapshot?.limits;
   const cards=[
@@ -41,7 +41,7 @@ export function HistoricalMarket({view,navigation,onNavigationChange,onSelectSto
     ["沪深A股成交额",stats?`${stats.amountYi.toLocaleString("zh-CN",{maximumFractionDigits:1})} 亿`:"—","daily股票成交额合计 · 不含北交所"]
   ];
   return <div className="compact-desk">
-    <div className="history-bar"><div><span className="mode-badge">TUSHARE · {mode==="live"?"盘中监测":"历史复盘"}</span><b>{date}</b><span className="muted">{busy?"正在加载…":snapshot?`${snapshot.coverage.total} 只日线已载入`:decision.data?`${decision.data.asOf} 更新`:"数据未载入"}</span></div><div><button className={`button ${mode==="live"?"primary":""}`} onClick={()=>update({mode:"live",date:chinaNow().date,selectedStock:undefined})}>今日盘中</button><button className={`button ${mode==="close"?"primary":""}`} onClick={()=>update({mode:"close",selectedStock:undefined})}>历史复盘</button><label htmlFor="market-date">交易日期</label><input id="market-date" type="date" value={date} onInput={e=>{if(e.currentTarget.value)update({mode:"close",date:e.currentTarget.value,selectedStock:undefined});}}/><button className="button" disabled={busy} onClick={()=>{setRetry(v=>v+1);decision.retry();}}><RefreshCw size={14}/>重新读取</button></div></div>
+    <div className="history-bar"><div><span className="mode-badge">TUSHARE · {mode==="live"?"盘中监测":"历史复盘"}</span><b>{date}</b><span className="muted">{view==="selection"?"候选与个股按需读取":busy?"正在加载…":snapshot?`${snapshot.coverage.total} 只日线已载入`:decision.data?`${decision.data.asOf} 更新`:"数据未载入"}</span></div><div><button className={`button ${mode==="live"?"primary":""}`} onClick={()=>update({mode:"live",date:chinaNow().date,selectedStock:undefined})}>今日盘中</button><button className={`button ${mode==="close"?"primary":""}`} onClick={()=>update({mode:"close",selectedStock:undefined})}>历史复盘</button><label htmlFor="market-date">交易日期</label><input id="market-date" type="date" value={date} onInput={e=>{if(e.currentTarget.value)update({mode:"close",date:e.currentTarget.value,selectedStock:undefined});}}/><button className="button" disabled={busy} onClick={()=>{setRetry(v=>v+1);decision.retry();}}><RefreshCw size={14}/>重新读取</button></div></div>
     {error&&<div className="error-banner" role="alert">{error}</div>}
     {view==="overview"&&<>
       <DecisionHeader {...decision} showIndustry={dimension==="industry"} onSelect={s=>{update({code:s.code,selectedStock:s});onSelectStock();}} onSector={name=>{setSectorFocus(current=>({name,serial:current.serial+1}));const c=decision.data?.sectors.find(s=>s.name===name)?.cores[0];if(c)update({code:c.code,selectedStock:c});}}/>

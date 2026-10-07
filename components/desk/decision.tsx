@@ -1,5 +1,5 @@
 "use client";
-import {useEffect,useMemo,useState} from "react";
+import {useEffect,useMemo,useRef,useState} from "react";
 import {Panel} from "./workspace";
 import {Plot} from "./market";
 import {Slider} from "@/components/ui/slider";
@@ -8,18 +8,24 @@ import type {DecisionOverview,Factor,ScoredSector,CoreStock} from "@/lib/decisio
 import type {MinuteBundle} from "@/lib/decision-data";
 import type {HistoryStock} from "./history-charts";
 
+const localDecisionCache=new Map<string,{until:number;value:unknown}>();
 export function useDecision<T>(url:string|null,live=false){
   const [data,setData]=useState<T|null>(null),[error,setError]=useState(""),[busy,setBusy]=useState(false),[attempt,setAttempt]=useState(0);
-  useEffect(()=>{const controller=new AbortController();let timer:ReturnType<typeof setTimeout>|undefined;setData(null);setError("");setBusy(!!url);
+  const lastUrl=useRef<string|null>(null);
+  useEffect(()=>{const controller=new AbortController();let timer:ReturnType<typeof setTimeout>|undefined;
+    const force=lastUrl.current===url&&attempt>0;lastUrl.current=url;
+    const cached=url&&!force?localDecisionCache.get(url):undefined;
+    const ready=cached&&cached.until>Date.now();
+    setData(ready?cached.value as T:null);setError("");setBusy(!!url&&!ready);
     if(!url)return()=>controller.abort();
-    const read=async()=>{
+    const read=async(refresh=false)=>{
       let blocked=false;
-      try{const response=await fetch(url,{signal:controller.signal,cache:"no-store"});const d=await response.json() as T & {error?:string;blocked?:boolean};if(!response.ok)throw new Error(d.error||"决策数据暂时不可用");if(!controller.signal.aborted){setData(d);setError("");}blocked=!!d.blocked;}
+      try{const endpoint=refresh?`${url}${url.includes("?")?"&":"?"}refresh=1`:url;const response=await fetch(endpoint,{signal:controller.signal,cache:"no-store"});const d=await response.json() as T & {error?:string;blocked?:boolean};if(!response.ok)throw new Error(d.error||"决策数据暂时不可用");if(!controller.signal.aborted){const requestDate=new URL(url,location.origin).searchParams.get("date"),ttl=live?15000:requestDate===chinaNow().date?60000:7*86400000;setData(d);setError("");localDecisionCache.set(url,{until:Date.now()+ttl,value:d});while(localDecisionCache.size>80)localDecisionCache.delete(localDecisionCache.keys().next().value!);}blocked=!!d.blocked;}
       catch(e){if(!controller.signal.aborted){const message=e instanceof Error?e.message:"读取失败";setData(null);setError(message);blocked=/40204|IP数量|权限|访问频次/.test(message);}}
       finally{if(!controller.signal.aborted){setBusy(false);if(live&&!blocked)timer=setTimeout(tick,60000);}}
     };
     const tick=()=>{if(controller.signal.aborted)return;if(document.visibilityState==="visible"&&liveSession(chinaNow().time))void read();else timer=setTimeout(tick,60000);};
-    void read();return()=>{controller.abort();if(timer)clearTimeout(timer);};
+    if(!ready||live)void read(force);return()=>{controller.abort();if(timer)clearTimeout(timer);};
   },[url,live,attempt]);
   return {data,error,busy,retry:()=>setAttempt(a=>a+1)};
 }
@@ -54,8 +60,10 @@ export function SectorDecision({sector,onSelect}:{sector:ScoredSector|undefined;
   </div>;
 }
 export function CoreProfile({stock,date,mode}:{stock:HistoryStock|undefined;date:string;mode:"close"|"live"}){
-  const {data}=useDecision<{core:CoreStock|null;sector:ScoredSector|null}>(stock?`/api/market/decision?view=stock&date=${date}&code=${stock.code}&mode=${mode}`:null,mode==="live");
-  return data?.core?<details className="core-profile"><summary><b>{data.core.name}</b><span>{data.core.sector}</span><strong>核心度 {number(data.core.score)} <em>{sign(data.core.delta)}</em></strong><span>{data.core.roles.join(" / ")}</span></summary><Factors factors={data.core.factors}/><p>{date} {mode==="close"?"收盘评分，仅用于事后复盘":"盘中快照评分"}；分钟辅助条件使用前一交易日固定的核心身份，避免事后排名污染回放。</p></details>:null;
+  const [open,setOpen]=useState(false);
+  const {data,error,busy,retry}=useDecision<{core:CoreStock|null;sector:ScoredSector|null}>(open&&stock?`/api/market/decision?view=stock&date=${date}&code=${stock.code}&mode=${mode}`:null,open&&mode==="live");
+  if(!stock)return null;
+  return <details className="core-profile" onToggle={e=>setOpen(e.currentTarget.open)}><summary><b>{stock.name}</b><span>{data?.core?.sector??"板块地位"}</span><strong>{data?.core?`核心度 ${number(data.core.score)}`:"展开核心度评分"}</strong>{data?.core&&<span>{data.core.roles.join(" / ")}</span>}</summary>{open&&(busy?<p>正在读取核心度依据…</p>:error?<p className="error-banner">{error} <button className="text-link" onClick={retry}>重试</button></p>:data?.core?<><Factors factors={data.core.factors}/><p>{date} {mode==="close"?"收盘评分，仅用于事后复盘":"盘中快照评分"}；分钟辅助条件使用前一交易日固定的核心身份，避免事后排名污染回放。</p></>:<p>该股票没有可核验的行业核心度评分。</p>)}</details>;
 }
 export function MinuteDecision({stock,date,showChart=true,mode="close",themeCode}:{stock:HistoryStock|undefined;date:string;showChart?:boolean;mode?:"close"|"live";themeCode?:string}){
   const {data,error,busy,retry}=useDecision<MinuteBundle>(stock?`/api/market/decision?view=minutes&code=${stock.code}&date=${date}&mode=${mode}${themeCode?`&theme=${encodeURIComponent(themeCode)}`:""}`:null,mode==="live");

@@ -1,13 +1,15 @@
 "use client";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Panel } from "./workspace";
 import { DailyChart } from "./daily-chart";
 import type { DailyHistory, MarketTimeline } from "@/lib/market-data";
 const pct=(n:number|null|undefined)=>n==null?"—":`${n>=0?"+":""}${n.toFixed(2)}%`;
+const historyCache=new Map<string,unknown>();
 function useHistory<T>(url:string|null){
   const [data,setData]=useState<T|null>(null),[error,setError]=useState(""),[busy,setBusy]=useState(false),[attempt,setAttempt]=useState(0);
-  useEffect(()=>{const c=new AbortController();setData(null);setError("");setBusy(!!url);if(!url)return()=>c.abort();
-    fetch(url,{signal:c.signal,cache:"no-store"}).then(async r=>{const d=await r.json() as T & {error?:string};if(!r.ok)throw new Error(d.error||"历史数据读取失败");return d;}).then(d=>{if(!c.signal.aborted)setData(d);}).catch(e=>{if(!c.signal.aborted)setError(e.message);}).finally(()=>{if(!c.signal.aborted)setBusy(false);});return()=>c.abort();
+  const lastUrl=useRef<string|null>(null);
+  useEffect(()=>{const c=new AbortController(),force=lastUrl.current===url&&attempt>0;lastUrl.current=url;const cached=url&&!force?historyCache.get(url) as T|undefined:undefined;setData(cached??null);setError("");setBusy(!!url&&!cached);if(!url||cached)return()=>c.abort();
+    fetch(url,{signal:c.signal,cache:"no-store"}).then(async r=>{const d=await r.json() as T & {error?:string};if(!r.ok)throw new Error(d.error||"历史数据读取失败");return d;}).then(d=>{if(!c.signal.aborted){historyCache.set(url,d);while(historyCache.size>80)historyCache.delete(historyCache.keys().next().value!);setData(d);}}).catch(e=>{if(!c.signal.aborted)setError(e.message);}).finally(()=>{if(!c.signal.aborted)setBusy(false);});return()=>c.abort();
   },[url,attempt]);
   return {data,error,busy,retry:()=>setAttempt(n=>n+1)};
 }
@@ -38,11 +40,11 @@ export function MarketHistory({date,onDate}:{date:string;onDate:(date:string)=>v
 export type HistoryStock={code:string;name:string;preClose?:number};
 export function InstrumentHistory({stock,date,minutes,live=false}:{stock:HistoryStock|undefined;date:string;live?:boolean;minutes:(stock:HistoryStock|undefined,date:string,showChart:boolean)=>ReactNode}){
   const [mode,setMode]=useState("minute"),[selectedDay,setSelectedDay]=useState(date);
-  const {data,error,busy,retry}=useHistory<DailyHistory>(stock?`/api/market/context?view=daily&date=${date}&code=${stock.code}`:null);
-  const dates=data?.dates.slice(-7)??[date],minuteDate=live||mode==="daily"?date:dates.includes(selectedDay)?selectedDay:dates.at(-1)!;
-  const minutePoint=data?.points.find(p=>p.date===minuteDate),minuteStock=stock?{...stock,preClose:minutePoint?.preClose??(minuteDate===date?stock.preClose:undefined)}:undefined;
+  const calendar=useHistory<{dates:string[]}>(!live?`/api/market/context?view=calendar&date=${date}&days=7`:null);
+  const {data,error,busy,retry}=useHistory<DailyHistory>(mode==="daily"&&stock?`/api/market/context?view=daily&date=${date}&code=${stock.code}`:null);
+  const dates=calendar.data?.dates??[date],minuteDate=live?date:dates.includes(selectedDay)?selectedDay:dates.at(-1)!;
   return <div className="column instrument-history"><div className="history-controls instrument-controls"><div className="history-switch"><button aria-pressed={mode==="daily"} className={mode==="daily"?"active":""} onClick={()=>setMode("daily")}>日K · 60交易日</button><button aria-pressed={mode==="minute"} className={mode==="minute"?"active":""} onClick={()=>setMode("minute")}>{live?"实时分时":"7日分时回放"}</button></div>{mode==="minute"&&!live&&<select aria-label="分时交易日" value={minuteDate} onChange={e=>setSelectedDay(e.target.value)}>{dates.slice().reverse().map(d=><option key={d} value={d}>{d}</option>)}</select>}</div>
-    {minutes(minuteStock,minuteDate,mode==="minute")}
+    {mode==="minute"&&minutes(stock,minuteDate,true)}
     {mode==="daily"&&<Panel title={stock?.name||"个股历史趋势"} extra={<span className="muted">{stock?.code??"选择股票"}</span>} className="chart-panel">
       {!stock?<p className="history-empty">选择持仓、自选或当日候选股。</p>:busy?<p className="history-empty" role="status">正在读取 60 个交易日日线与复权因子…</p>:error?<div className="history-empty" role="alert">{error}<button className="button" onClick={retry}>重试</button></div>:data&&<>
         <div className="quote"><strong className={(data.points.at(-1)?.pct??0)<0?"down":"up"}>{data.points.at(-1)?.close.toFixed(2)} <span>{pct(data.points.at(-1)?.pct)}</span></strong><span>{data.points.at(-1)?.date} 收盘 · 未复权</span></div>
