@@ -25,8 +25,8 @@ export async function themeOverview(date:string,mode:ThemeMode,refresh=false):Pr
     const dates=mode==="live"?calendar.dates.slice(-8,-1):calendar.dates.slice(-7);
     if(dates.length<7)throw new MarketError("题材初筛需要至少7个交易日的历史概念快照");
     const days:{date:string;rows:Row[]}[]=[];
-    for(let i=0;i<dates.length;i+=2){
-      const batch=await Promise.all(dates.slice(i,i+2).map(async day=>{
+    for(let i=0;i<dates.length;i+=4){
+      const batch=await Promise.all(dates.slice(i,i+4).map(async day=>{
         const packet=await tushare("dc_index",{trade_date:day.replaceAll("-",""),idx_type:"概念板块"},indexFields,5000);
         const quality=auditThemeRows(packet.rows,day,"index");
         if(!quality.usable||packet.rows.some(r=>r.idx_type!=="概念板块"))throw new MarketError(`${day} 题材目录缺失或日期、代码、分类不一致`);
@@ -49,8 +49,8 @@ export async function themeOverview(date:string,mode:ThemeMode,refresh=false):Pr
       if(limits&&daily){
         const quoted=new Set(daily.map(r=>String(r.ts_code))),limitMap=new Map(limits.filter(r=>r.limit==="U").map(r=>[String(r.ts_code),r]));
         const checked=new Map<string,ReturnType<typeof withThemeLadder>>();
-        for(let i=0;i<Math.min(20,pending.length);i+=2){
-          const batch=pending.slice(i,i+2);
+        for(let i=0;i<Math.min(20,pending.length);i+=5){
+          const batch=pending.slice(i,i+5);
           const results=await Promise.allSettled(batch.map(t=>tushare("dc_member",{ts_code:t.code,trade_date:key},memberFields,5000)));
           results.forEach((result,j)=>{
             const t=batch[j];

@@ -11,8 +11,11 @@ const limitFields="ts_code,trade_date,name,industry,limit,limit_times,close,pct_
 const jobs=new Map<string,Promise<{overview:DecisionOverview;days:DecisionDay[]}>>();
 const memory=new Map<string,{until:number;value:{overview:DecisionOverview;days:DecisionDay[]}}>();
 async function basicRows(warnings:string[]){
-  const fields="ts_code,name,industry,list_date,delist_date",rows=[...(await tushare("stock_basic",{list_status:"L"},fields)).rows];
-  for(const s of ["D","P"]){try{rows.push(...(await tushare("stock_basic",{list_status:s},fields)).rows);}catch(e){warnings.push(e instanceof Error?e.message:"历史股票列表缺失");}}
+  const fields="ts_code,name,industry,list_date,delist_date",statuses=["L","D","P"] as const;
+  const result=await Promise.allSettled(statuses.map(s=>tushare("stock_basic",{list_status:s},fields)));
+  if(result[0].status==="rejected")throw result[0].reason;
+  const rows=[...result[0].value.rows];
+  result.slice(1).forEach((r,i)=>{if(r.status==="fulfilled")rows.push(...r.value.rows);else warnings.push(`${statuses[i+1]} 股票列表：${r.reason instanceof Error?r.reason.message:"缺失"}`);});
   return rows;
 }
 async function closeDay(date:string,basic:Row[],warnings:string[],boardCheck=false):Promise<DecisionDay>{
@@ -60,7 +63,7 @@ export async function decisionData(date:string,mode:"close"|"live"="close",count
     const warnings:string[]=[],{dates}=await marketDates(date,count);
     if(dates.at(-1)!==date)throw new MarketError(`${date} 不是交易日，未替换为其他日期`);
     const basic=await basicRows(warnings),wanted=mode==="live"?dates.slice(0,-1):dates,days:DecisionDay[]=[];
-    const batchSize=count>20?6:2;
+    const batchSize=count>20?6:5;
     for(let i=0;i<wanted.length;i+=batchSize){days.push(...await Promise.all(wanted.slice(i,i+batchSize).map((d,j)=>closeDay(d,basic,warnings,count===20&&i+j>=wanted.length-5))));}
     if(mode==="live")days.push(await realtimeDay(date,basic,days.at(-1)!,warnings));
     warnings.push("当前使用股票行业分类识别主线代理，未覆盖概念题材；历史行业变更未还原。分数为可解释规则分，不是概率或已验证收益。");

@@ -22,8 +22,8 @@ export async function decisionFunnel(date:string,mode:"close"|"live"):Promise<Fu
   const warnings=["题材只核对强度靠前的至多8个候选；未匹配不等于个股没有题材归属。收盘候选只能用于盘后复盘，不能回填为当时盘中已知名单。"];
   const matches=new Map<string,Match[]>(),quote=new Map(day.prices.map(p=>[p.code,p])),limits=new Map((day.limits??[]).map(r=>[String(r.ts_code),r]));
   let verifiedThemes=0;
-  for(let i=0;i<shortlist.length;i+=2){
-    const batch=shortlist.slice(i,i+2);
+  for(let i=0;i<shortlist.length;i+=4){
+    const batch=shortlist.slice(i,i+4);
     const results=await Promise.allSettled(batch.map(t=>tushare("dc_member",{ts_code:t.code,trade_date:themes.asOfDate.replaceAll("-","")},"trade_date,ts_code,con_code,name",5000)));
     results.forEach((result,j)=>{
       const theme=batch[j];
