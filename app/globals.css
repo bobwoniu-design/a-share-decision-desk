@@ -1377,6 +1377,9 @@ input[type="datetime-local"] {
 .selection-personal-wrap{overflow-x:auto}
 .selection-personal-table{width:100%;min-width:520px}
 .selection-personal-table td{vertical-align:middle}
+.dragon-tiger-badge{display:inline-block;padding:3px 8px;border:1px solid #c69c5d;border-radius:4px;background:#4b3827;color:#ffe1aa;font-size:12px;font-weight:700;white-space:nowrap}
+.dragon-tiger-muted{color:#8da5c3;font-size:12px;white-space:nowrap}
+.dragon-tiger-retry{border:0;background:none;padding:0;color:#d5ae78;font-size:12px;cursor:pointer;white-space:nowrap;text-decoration:underline;text-underline-offset:2px}
 .selection-expanded-row>td{padding:0!important;text-align:left!important;white-space:normal;background:#101d2e}
 .selection-standalone-detail{border:1px solid #466286;border-radius:8px;overflow:hidden}
 .stock-detail-content{display:flex;flex-direction:column;gap:12px;min-width:0}
