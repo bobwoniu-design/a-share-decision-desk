@@ -50,7 +50,7 @@ export function InstrumentHistory({stock,date,minutes,live=false,fixedMode,selec
     {mode==="daily"&&<Panel title={fixedMode?"日K走势":stock?.name||"个股历史趋势"} extra={<span className="muted">{fixedMode?"近60个交易日":stock?.code??"选择股票"}</span>} className="chart-panel">
       {!stock?<p className="history-empty">选择持仓、自选或当日候选股。</p>:busy?<p className="history-empty" role="status">正在读取 60 个交易日日线与复权因子…</p>:error?<div className="history-empty" role="alert">{error}<button className="button" onClick={retry}>重试</button></div>:data&&<>
         <div className="quote"><strong className={(data.points.at(-1)?.pct??0)<0?"down":"up"}>{data.points.at(-1)?.close.toFixed(2)} <span>{pct(data.points.at(-1)?.pct)}</span></strong><span>{data.points.at(-1)?.date} 收盘 · 未复权</span></div>
-        <div className="evidence"><div><small>近 5 交易日涨幅</small><b>{pct(data.return5)}</b></div><div><small>近 20 交易日涨幅</small><b>{pct(data.return20)}</b></div><div><small>有效日线</small><b>{data.points.length}/{data.dates.length}</b></div></div>
+        {!fixedMode&&<div className="evidence"><div><small>近 5 交易日涨幅</small><b>{pct(data.return5)}</b></div><div><small>近 20 交易日涨幅</small><b>{pct(data.return20)}</b></div><div><small>有效日线</small><b>{data.points.length}/{data.dates.length}</b></div></div>}
         <DailyChart data={data} selectedDate={selectedMinuteDate} onDateSelect={onDailyDateSelect}/>
         <p className="history-caption">{data.dates[0]} — {data.dates.at(-1)} · 均线与区间涨幅使用前复权价格；成交额和成交量为原始数据，不代表持仓收益。</p>
         {data.warnings.map(w=><p className="history-caption amber-text" key={w}>{w}</p>)}

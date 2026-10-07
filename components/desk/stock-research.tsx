@@ -53,7 +53,7 @@ export function StockResearch({code,name,date,candidate}:{code:string;name:strin
       <p className="research-muted">{news.data?.note??"快讯不参与核心度或买卖评分。"} 政策可通过新闻页关键词单独检索，并与日K、分时的市场反应对照。</p>
     </StockDetailCard>
     <StockDetailCard title="机构研报" subtitle="近 90 日 · 仅供人工研读" onVisibilityChange={setOpen("reports")}>
-      {r?<>{r.status==="未核验"?<p className="amber-text">研报未核验：{r.error}</p>:r.reports.length?<div className="research-timeline">{r.reports.map((x,i)=><div key={`${x.date}:${x.title}:${i}`}><time>{x.date}</time><b>{x.url?<a href={x.url} target="_blank" rel="noreferrer">{x.title} ↗</a>:x.title}</b><small>{[x.institution,x.author].filter(Boolean).join(" · ")||"机构未提供"}</small>{x.abstract&&<p>{x.abstract.slice(0,300)}{x.abstract.length>300?"…":""}</p>}</div>)}</div>:<p className="research-muted">区间内未返回研报。</p>}<p className="research-muted">{r.note}</p></>:<SourceState busy={reports.busy} error={reports.error} empty="研报资料尚无结果" retry={reports.retry}/>}
+      {r?<>{r.status==="未核验"?<p className="amber-text">研报未核验：{r.error}</p>:r.reports.length?<div className="research-timeline research-report-list">{r.reports.map((x,i)=><div key={`${x.date}:${x.title}:${i}`}><time>{x.date}</time><b>{x.url?<a href={x.url} target="_blank" rel="noreferrer">{x.title} ↗</a>:x.title}</b><small>{[x.institution,x.author].filter(Boolean).join(" · ")||"机构未提供"}</small>{x.abstract&&<p>{x.abstract.slice(0,300)}{x.abstract.length>300?"…":""}</p>}</div>)}</div>:<p className="research-muted">区间内未返回研报。</p>}<p className="research-muted">{r.note}</p></>:<SourceState busy={reports.busy} error={reports.error} empty="研报资料尚无结果" retry={reports.retry}/>}
     </StockDetailCard>
   </div>;
 }
