@@ -50,13 +50,12 @@ export function DecisionHeader({data,error,busy,retry,onSelect,onSector,showIndu
     </>}
   </section>;
 }
-export function SectorDecision({sector,onSelect}:{sector:ScoredSector|undefined;onSelect:(s:HistoryStock)=>void}){
+export function SectorDecision({sector}:{sector:ScoredSector|undefined}){
   if(!sector)return <p className="history-caption">板块评分正在加载，未用涨幅代替综合分。</p>;
   return <div className="sector-decision"><div className="sector-score-head"><span><b>{sector.name}</b> · {sector.label}</span><strong>{number(sector.score)} <em className={(sector.delta??0)<0?"down":"up"}>{sign(sector.delta)}</em></strong><PhaseTag phase={sector.phase}/></div>
     <div className="industry-qualification"><b>主线资格：{sector.qualification.status}</b><span>强度分与资格分开，以下条件逐项核对</span><div>{sector.qualification.checks.map(c=><p key={c.name}><strong className={c.result==="通过"?"up":c.result==="未通过"?"down":"muted"}>{c.result}</strong><b>{c.name}</b><span>{c.detail}</span></p>)}</div></div>
     <div className="sector-dimensions">{sector.factors.map(f=><span key={f.name} title={f.detail}><small>{f.name}</small><b>{number(f.score)}</b><i><em style={{width:`${f.score??0}%`}}/></i></span>)}</div>
-    <details className="engine-method"><summary>板块分解与阶段变化</summary><Factors factors={sector.factors}/><p>这里是收盘/快照阶段；分钟状态在右侧随个股同步回放。行业代理不等同于概念题材。日级阶段：分数＜35或较昨日下降≥15为转弱；下降≥7为分歧；分歧/转弱后回升≥3为承接；承接后分≥65且上升≥3为转强；强势阶段分≥80且上升≥4为加速；其余≥65为一致。</p><div className="market-cycle-history">{sector.history.slice(-7).map(h=><span key={h.date}><small>{h.date.slice(5)}</small><b>{number(h.score)}</b><span>{h.phase}</span></span>)}</div></details>
-    <div className="sector-core-roles">{sector.cores.filter(c=>c.roles.some(r=>r!=="观察成员")).slice(0,5).map(c=><button key={c.code} onClick={()=>onSelect(c)}><small>{c.roles.join(" / ")}</small><b>{c.name}<em>{number(c.score)}</em></b></button>)}</div>
+    <details className="engine-method" open><summary>板块分解与近7日变化</summary><Factors factors={sector.factors}/><p>这里是收盘/快照阶段；分钟状态在右侧随个股同步回放。行业代理不等同于概念题材。日级阶段：分数＜35或较昨日下降≥15为转弱；下降≥7为分歧；分歧/转弱后回升≥3为承接；承接后分≥65且上升≥3为转强；强势阶段分≥80且上升≥4为加速；其余≥65为一致。</p><div className="market-cycle-history">{sector.history.slice(-7).map(h=><span key={h.date}><small>{h.date.slice(5)}</small><b>{number(h.score)}</b><span>{h.phase}</span></span>)}</div></details>
   </div>;
 }
 export function CoreProfile({stock,date,mode}:{stock:HistoryStock|undefined;date:string;mode:"close"|"live"}){
