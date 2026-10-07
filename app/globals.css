@@ -1236,22 +1236,9 @@ input[type="datetime-local"] {
 .board-filter-tabs button.active span{color:#c4ddfb}
 .board-toolbar input{width:170px;min-width:130px;padding:7px 10px;border:1px solid #344963;border-radius:6px;background:#111d30;color:#e1edfc;font-size:14px}
 .board-results{padding:8px 12px 2px;color:#8ea3bd;font-size:12px}
-.board-card-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:9px;padding:10px 12px 14px}
 .board-rows{display:flex;flex-direction:column;gap:11px;padding:10px 12px 14px}
 .board-row{min-width:0}
-.board-row-cards,.board-row-details{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px}
-.board-row-detail{display:flex;flex-direction:column;gap:8px;min-width:0;padding:12px 13px;border:1px solid #3a5577;border-radius:8px;background:#101d2e;color:#b6c9e2;font-size:13px;line-height:1.4}
-.board-row-detail.active{border-color:#84ade3;background:#172b45}
-.board-row-detail-head,.board-row-detail-score{display:flex;justify-content:space-between;align-items:center;gap:8px}
-.board-row-detail-head b{color:#edf5ff;font-size:16px;overflow-wrap:anywhere}
-.board-row-detail-head span{color:#9cb5d4;font-size:12px;white-space:nowrap}
-.board-row-detail-score strong{color:#bddbff;font-size:25px;font-variant-numeric:tabular-nums}
-.board-row-detail-score strong small{color:#8da9cb;font-size:12px}
-.board-row-detail-metrics{display:flex;gap:6px 14px;flex-wrap:wrap}
-.board-row-detail p{margin:0}
-.board-row-detail-note{flex:1;color:#97adc9}
-.board-row-detail>.text-link{align-self:flex-start;margin-top:2px}
-.board-row-details{margin-top:9px;scroll-margin-top:70px}
+.board-row-cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px}
 .board-row>.board-detail{margin:9px 0 0}
 .board-card{display:flex;flex-direction:column;gap:9px;min-width:0;padding:12px 13px;border:1px solid #30425d;border-radius:8px;background:#142238;text-align:left;color:#e1eaf7;transition:background .16s,border-color .16s,transform .16s}
 .board-card:hover{background:#1d3150;border-color:#6b93c5;transform:translateY(-1px)}
@@ -1267,13 +1254,13 @@ input[type="datetime-local"] {
 .board-card-score small{font-size:12px;font-variant-numeric:tabular-nums}
 .board-card-meta{justify-content:flex-start;flex-wrap:wrap;color:#9caec5;font-size:12px}
 .board-card-meta span:first-child{font-size:14px;font-variant-numeric:tabular-nums;margin-right:auto}
+.board-card-foot{display:block;padding-top:7px;border-top:1px solid #2b405c;color:#9cb2cf;font-size:12px;line-height:1.35}
 .board-detail{margin:4px 12px 12px;border:1px solid #476586;border-radius:8px;background:#101d2e;scroll-margin-top:70px;overflow:hidden}
 .board-detail-heading{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:12px 14px;background:#1a304c}
 .board-detail-heading small{font-size:12px;color:#9cb6d9}
 .board-detail-heading h3{font-size:18px;line-height:1.3;margin:2px 0 0;color:#e7f1ff}
-@media(max-width:600px){.board-toolbar{align-items:stretch}.board-filter-tabs{width:100%}.board-filter-tabs button{font-size:13px;padding:7px 8px}.board-toolbar input{width:100%}.board-card-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;padding:8px}.board-card{padding:10px;gap:8px}.board-detail{margin:4px 8px 8px}.board-card-top{align-items:flex-start;flex-wrap:wrap}.board-card-top b{font-size:14px}}
-@media(max-width:350px){.board-card-grid{grid-template-columns:1fr}}
-@media(max-width:760px){.board-rows{padding:8px;gap:12px}.board-row-cards,.board-row-details{grid-template-columns:1fr;gap:7px}.board-row-detail{padding:10px}.board-row>.board-detail{margin-top:8px}}
+@media(max-width:600px){.board-toolbar{align-items:stretch}.board-filter-tabs{width:100%}.board-filter-tabs button{font-size:13px;padding:7px 8px}.board-toolbar input{width:100%}.board-card{padding:10px;gap:8px}.board-detail{margin:4px 8px 8px}.board-card-top{align-items:flex-start;flex-wrap:wrap}.board-card-top b{font-size:14px}}
+@media(max-width:760px){.board-rows{padding:8px;gap:12px}.board-row-cards{grid-template-columns:1fr;gap:7px}.board-row>.board-detail{margin-top:8px}}
 
 /* Theme discovery is a separate, date-stamped source from the industry proxy. */
 .market-dimension-tabs{display:flex;align-items:center;gap:7px;margin:12px 0 8px;flex-wrap:wrap}
