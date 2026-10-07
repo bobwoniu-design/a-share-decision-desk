@@ -1607,6 +1607,17 @@ input[type="datetime-local"] {
 .hot-money-roster summary span{display:block;margin:5px 0 0 19px;font-size:13px;color:#a9bed8;white-space:nowrap;text-overflow:ellipsis;overflow:hidden}
 .hot-money-roster details>div{font-size:13px;line-height:1.6;color:#a9bed8;overflow-wrap:anywhere}
 @media(max-width:700px){.hot-money-roster details:nth-child(odd){border-right:0}}
+.hot-money-roster article.expanded{grid-column:1/-1;background:#14243a;border-right:0}
+.hot-money-roster-card{display:block;width:100%;padding:0;border:0;background:transparent;text-align:left;cursor:pointer;color:#dceafb}
+.hot-money-roster-card::before{content:"▸";color:#8fb6e6;margin-right:8px}
+.hot-money-roster-card[aria-expanded="true"]::before{content:"▾"}
+.hot-money-roster-card b{font-size:16px}
+.hot-money-roster-card span{display:block;margin:5px 0 0 19px;font-size:13px;color:#a9bed8;white-space:nowrap;text-overflow:ellipsis;overflow:hidden}
+.hot-money-roster-detail{margin-top:12px;padding-top:12px;border-top:1px solid #344960}
+.hot-money-roster-detail h3{margin:13px 0 8px;font-size:15px}
+.hot-money-roster-detail p{margin:0 0 10px}
+.hot-money-roster-detail .hot-money-table :is(th,td):nth-child(3){text-align:right;white-space:nowrap}
+.hot-money-roster-detail .hot-money-table :is(th,td):nth-child(6){text-align:left;white-space:normal}
 .board-table{min-width:1380px}
 .board-table .board-row-expanded>td{background:#1c304a}
 .board-table .board-expanded-row>td{padding:0!important;text-align:left!important;white-space:normal!important;background:#101d2e}
