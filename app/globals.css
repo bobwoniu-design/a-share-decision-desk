@@ -1302,13 +1302,25 @@ input[type="datetime-local"] {
 .theme-qualification p strong,.industry-qualification p strong{min-width:3em;font-size:12px}
 .theme-qualification p b,.industry-qualification p b{white-space:nowrap;color:#dce9f8}
 .theme-qualification p span,.industry-qualification p span{color:#9fb4cf}
+.theme-qualification>.qualification-score-grid,.industry-qualification>.qualification-score-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px 10px;margin-top:10px}
+.qualification-score-card{min-width:0;padding:8px 10px;border:1px solid #2a405d;border-radius:5px;background:#172942}
+.qualification-score-top{display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap}
+.qualification-score-name{display:inline-flex;align-items:baseline;gap:7px;min-width:0}
+.qualification-score-name strong{font-size:12px;white-space:nowrap}
+.qualification-score-name b{font-size:13px;color:#dce9f8;overflow-wrap:anywhere}
+.qualification-score-value{display:inline-flex;align-items:baseline;gap:3px;color:#b5d4ff;font-variant-numeric:tabular-nums;white-space:nowrap}
+.qualification-score-value b{font-size:16px}
+.qualification-score-value small,.qualification-score-unweighted{font-size:11px;color:#92aac8}
+.theme-qualification .qualification-score-card p,.industry-qualification .qualification-score-card p{display:block;margin:5px 0 0;padding:0;background:none;border:0;border-radius:0;color:#a9bdd6;font-size:12px;line-height:1.4}
+.theme-qualification .qualification-score-card .qualification-score-basis,.industry-qualification .qualification-score-card .qualification-score-basis{color:#879fbe;font-size:11px}
+.board-column .theme-qualification>.qualification-score-grid,.board-column .industry-qualification>.qualification-score-grid{grid-template-columns:1fr}
 .theme-member-summary{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:1px;background:#2a3d56;border-block:1px solid #2a3d56}
 .theme-member-summary>div{display:flex;flex-direction:column;gap:4px;padding:10px 12px;background:#16263c;min-width:0}
 .theme-member-summary b{font-size:17px;color:#e0edfc;font-variant-numeric:tabular-nums}
 .theme-member-summary small{color:#94accb;font-size:12px;line-height:1.35}
 .theme-leading-note{padding:9px 12px;margin:0;color:#aec2dc;font-size:13px;border-bottom:1px solid #2a3b51}
 .theme-more{display:flex;justify-content:center;padding:3px 12px 15px}
-@media(max-width:850px){.theme-member-summary{grid-template-columns:repeat(3,minmax(0,1fr))}.market-dimension-tabs>span{margin-left:0;width:100%}.theme-qualification>div,.industry-qualification>div{grid-template-columns:1fr}}
+@media(max-width:850px){.theme-member-summary{grid-template-columns:repeat(3,minmax(0,1fr))}.market-dimension-tabs>span{margin-left:0;width:100%}.theme-qualification>div,.industry-qualification>div,.theme-qualification>.qualification-score-grid,.industry-qualification>.qualification-score-grid{grid-template-columns:1fr}}
 @media(max-width:480px){.theme-member-summary{grid-template-columns:repeat(2,minmax(0,1fr))}.theme-score-summary strong{font-size:26px}}
 
 /* The decision funnel keeps status, role and opportunity separate. */
