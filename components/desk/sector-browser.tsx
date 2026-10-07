@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { Panel } from "./workspace";
 import { SectorDecision } from "./decision";
 import { memberRoles } from "@/lib/member-roles";
+import { BlockChart } from "./candle-chart";
 import { chinaNow, liveSession } from "@/lib/minute-engine";
 import type { ScoredSector } from "@/lib/decision-engine";
 import type { SectorGroup, SectorMember, SectorOverview } from "@/lib/sectors";
@@ -42,7 +43,7 @@ export function SectorBrowser({date,code,onSelect,scored,focus,mode="close"}:{da
       <div className="board-results">显示 {visible.length} / {ordered.length} 个行业 · 点击任一卡片，同时展开本排板块详情</div>
       <div className="board-rows">{cardRows.map(row=><div key={row[0].name} className="board-row"><div className="board-row-cards">
         {row.map(g=>{const s=scoreByName.get(g.name);return <div key={g.name} className="board-column"><button className={`board-card ${expanded.includes(g.name)?"selected":""}`} aria-expanded={expanded.includes(g.name)} onClick={()=>toggleRow(row)}><span className="board-card-top"><b>{g.name}</b><em className={`board-label board-label-${s?.label==="退潮"?"risk":s?.label==="主线初筛"?"main":s?.label==="主线候选"?"candidate":"neutral"}`}>{labelFor(g.name)}</em></span><span className="board-card-score"><strong>{s?.score??"—"}</strong><small className={(s?.delta??0)<0?"down":"up"}>{s?.delta==null?"较前日 —":`${s.delta>=0?"↑ +":"↓ "}${s.delta.toFixed(0)}`}</small></span><span className="board-card-meta"><span className={(g.averagePct??0)<0?"down":"up"}>{pct(g.averagePct)}</span><span>涨停 {g.limitUp??"—"}</span><span>{g.total} 只</span></span><span className="board-card-foot">主线资格 {s?.qualification.status??"待数据"} · 上涨 {g.up} / 下跌 {g.down} · 成交 {g.amountYi.toFixed(1)} 亿</span></button>
-          {expanded.includes(g.name)&&<IndustryDetailView group={g} sector={s} warnings={data.warnings} code={code} onSelect={onSelect} onClose={()=>toggleRow(row)}/>}
+          {expanded.includes(g.name)&&<IndustryDetailView group={g} sector={s} warnings={data.warnings} code={code} date={date} mode={mode} onSelect={onSelect} onClose={()=>toggleRow(row)}/>}
         </div>;})}
       </div></div>)}</div>
       {!visible.length&&<p className="history-small-empty">当前筛选下没有行业板块。</p>}
@@ -50,7 +51,7 @@ export function SectorBrowser({date,code,onSelect,scored,focus,mode="close"}:{da
   </Panel>;
 }
 
-function IndustryDetailView({group,sector,warnings,code,onSelect,onClose}:{group:SectorGroup;sector:ScoredSector|undefined;warnings:string[];code:string;onSelect:(stock:SectorMember)=>void;onClose:()=>void}){
+function IndustryDetailView({group,sector,warnings,code,date,mode,onSelect,onClose}:{group:SectorGroup;sector:ScoredSector|undefined;warnings:string[];code:string;date:string;mode:"close"|"live";onSelect:(stock:SectorMember)=>void;onClose:()=>void}){
   const [query,setQuery]=useState(""),[sort,setSort]=useState("leader"),[filter,setFilter]=useState("all"),[page,setPage]=useState(0);
   const rows=group.members.filter(m=>(!query||`${m.code}${m.name}`.toLowerCase().includes(query.toLowerCase()))&&(filter==="all"||filter==="up"&&m.limit==="U"||filter==="down"&&m.quote!==null&&m.quote.pct<0||filter==="missing"&&!m.quote)).slice();
   if(sort==="amount")rows.sort((a,b)=>(b.quote?.amount??-1)-(a.quote?.amount??-1));
@@ -59,6 +60,7 @@ function IndustryDetailView({group,sector,warnings,code,onSelect,onClose}:{group
   const pageIndex=Math.min(page,Math.max(0,Math.ceil(rows.length/30)-1)),pageRows=rows.slice(pageIndex*30,pageIndex*30+30);
   return <div id={`sector-detail-${encodeURIComponent(group.name)}`} className="board-detail"><div className="board-detail-heading"><div><small>行业板块详情</small><h3>{group.name}</h3></div><button className="text-link" onClick={onClose}>收起本排</button></div>
     <SectorDecision sector={sector}/>
+    <BlockChart kind="industry" name={group.name} date={date} mode={mode}/>
     <div className="sector-overview"><div><b className={(group.averagePct??0)<0?"down":"up"}>{pct(group.averagePct)}</b><small>等权平均涨幅</small></div><div><b><em className="up">{group.up}</em> / <em className="down">{group.down}</em> / {group.flat}</b><small>涨 / 跌 / 平</small></div><div><b>{group.amountYi.toFixed(1)} 亿</b><small>板块成交额</small></div></div>
     <div className="sector-breadth" aria-label={`上涨${group.up}，下跌${group.down}，平盘${group.flat}，无行情${group.total-group.traded}`}><i style={{width:`${group.total?group.up/group.total*100:0}%`,background:"#ed7580"}}/><i style={{width:`${group.total?group.flat/group.total*100:0}%`,background:"#75859c"}}/><i style={{width:`${group.total?group.down/group.total*100:0}%`,background:"#48b79c"}}/></div>
     <div className="sector-meta"><span>涨停 {group.limitUp??"—"} · 跌停 {group.limitDown??"—"} · 炸板 {group.broken??"—"}</span><span>有行情 {group.traded}/{group.total}</span></div>

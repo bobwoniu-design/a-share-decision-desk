@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { Factors, PhaseTag } from "./decision";
 import { memberRoles } from "@/lib/member-roles";
+import { BlockChart } from "./candle-chart";
 import type { SectorMember } from "@/lib/sectors";
 import type { ThemeDetail } from "@/lib/theme-data";
 import type { ScoredTheme, ThemeOverview } from "@/lib/themes";
@@ -51,6 +52,7 @@ function ThemeDetailView({theme,date,mode,asOfDate,onClose,onSelect}:{theme:Scor
     <div className="theme-score-summary"><strong>{number(theme.score)}<small>/100 强度</small></strong><span>较前日 {signed(theme.delta)} · 当日 {percent(theme.pct)} · 近5日 {percent(theme.return5)}</span><span>上涨 {theme.up??"—"} / 下跌 {theme.down??"—"} · 换手 {theme.turnover===null?"—":`${number(theme.turnover,2)}%`}</span></div>
     <div className="theme-qualification"><b>主线资格：{theme.qualification.status}</b><span>{theme.label} · 需逐项核对，不由强度分直接决定</span><div>{theme.qualification.checks.map(c=><p key={c.name}><strong className={c.result==="通过"?"up":c.result==="未通过"?"down":"muted"}>{c.result}</strong><b>{c.name}</b><span>{c.detail}</span></p>)}</div></div>
     <details className="engine-method" open><summary>强度评分依据与近7日变化</summary><Factors factors={theme.factors}/><div className="market-cycle-history">{theme.history.map(p=><span key={p.date}><small>{p.date.slice(5)}</small><b>{percent(p.pct,1)}</b><span>{p.phase}</span></span>)}</div><p>阶段依据收盘规则分变化，非盘中分钟状态；主线初筛仍需核实催化和真实龙头地位。</p></details>
+    <BlockChart kind="theme" code={theme.code} date={date} mode={mode}/>
     {loading?<p className="history-small-empty" role="status">正在读取历史成分与成员行情…</p>:error?<p className="history-small-empty" role="alert">{error}<button className="text-link" onClick={()=>setRetry(v=>v+1)}>重试成员</button></p>:detail&&<>
       <div className="theme-member-summary"><div><b>{detail.memberCount}</b><small>历史成分</small></div><div><b>{detail.group.traded}/{detail.group.total}</b><small>有行情</small></div><div><b>{detail.group.limitUp??"—"}</b><small>涨停</small></div><div><b>{detail.group.amountYi.toFixed(1)} 亿</b><small>成分成交额 · 含重叠</small></div><div><b>{detail.memberChange?`+${detail.memberChange.added} / -${detail.memberChange.removed}`:"—"}</b><small>较前日成分变化</small></div></div>
       <div className="sector-filters"><input aria-label={`搜索${theme.name}成员`} placeholder="搜索成员名称 / 代码" value={query} onChange={e=>{setQuery(e.target.value);setPage(0);}}/></div>
