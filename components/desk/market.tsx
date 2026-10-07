@@ -92,7 +92,9 @@ export function evidence(bars: Bar[]) {
             : "观察";
   return { vwaps, last, above, higher, drawdown, state, vwap: valid };
 }
-export function Plot({ bars }: { bars: Bar[] }) {
+export type PhaseTrack = {label:string;frames:{time:string;phase:string}[]};
+const phaseColor=(phase:string)=>({"一致":"#658fd0","分歧":"#caa25e","承接":"#53b7a7","转强":"#5ba9ed","加速":"#9781d9","转弱":"#c97989","观察":"#64748b","待数据":"#3d4b61"})[phase as "一致"|"分歧"|"承接"|"转强"|"加速"|"转弱"|"观察"|"待数据"]??"#64748b";
+export function Plot({ bars,phaseTracks }: { bars: Bar[];phaseTracks?:PhaseTrack[] }) {
   const e = evidence(bars);
   if (!e) return null;
   const min =
@@ -115,12 +117,19 @@ export function Plot({ bars }: { bars: Bar[] }) {
     )
     .join(" ");
   const maxVol = Math.max(...bars.map((b) => b.vol), 1);
+  const step=590/Math.max(bars.length-1,1);
+  const tracks=phaseTracks?.map(track=>{
+    const byTime=new Map(track.frames.map(frame=>[frame.time,frame.phase]));
+    const runs:{start:number;end:number;phase:string}[]=[];
+    bars.forEach((bar,i)=>{const phase=byTime.get(bar.time)??"待数据",last=runs.at(-1);if(last?.phase===phase)last.end=i;else runs.push({start:i,end:i,phase});});
+    return {label:track.label,runs};
+  });
   return (
     <svg
-      viewBox="0 0 700 300"
+      viewBox={`0 0 700 ${tracks?.length?306+tracks.length*25:300}`}
       className="price-chart"
       role="img"
-      aria-label="所选股票分时价格、累计VWAP及成交量"
+      aria-label={`所选股票分时价格、累计VWAP及成交量${tracks?.length?"，下方按时间对齐显示个股、行业和题材状态":""}`}
     >
       {[0, 1, 2, 3, 4].map((i) => (
         <g key={i}>
@@ -163,6 +172,14 @@ export function Plot({ bars }: { bars: Bar[] }) {
           {bars[i].time}
         </text>
       ))}
+      {tracks?.map((track,row)=><g key={track.label}>
+        <text x="0" y={318+row*25} fill="#a6bbd6" fontSize="12">{track.label}</text>
+        {track.runs.map(run=>{const left=run.start===0?46:x(run.start)-step/2,right=run.end===bars.length-1?638:x(run.end)+step/2,width=right-left;return <g key={`${run.start}-${run.phase}`}>
+          <rect x={left} y={303+row*25} width={width} height="20" rx="2" fill={phaseColor(run.phase)} opacity=".88"><title>{track.label} {bars[run.start].time}–{bars[run.end].time}：{run.phase}</title></rect>
+          {width>=34&&<text x={left+width/2} y={317+row*25} fill="#f4f7fc" fontSize="10" textAnchor="middle" pointerEvents="none">{run.phase}</text>}
+        </g>;})}
+        <text x="646" y={318+row*25} fill="#cbd9ec" fontSize="11">{track.runs.at(-1)?.phase??"待数据"}</text>
+      </g>)}
     </svg>
   );
 }
