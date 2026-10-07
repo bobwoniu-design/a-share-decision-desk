@@ -1591,6 +1591,22 @@ input[type="datetime-local"] {
 
 /* The limit-up list expands stock research in place; its thumbnail opens the shared chart dialog. */
 .board-table-wrap{max-height:none;overflow-x:auto}
+.hot-money-browser{border:1px solid #314461;border-radius:8px;background:#101a29;color:#d7e3f4;overflow:hidden}
+.hot-money-heading{display:flex;justify-content:space-between;align-items:center;gap:18px;padding:14px 17px;background:#142238;border-bottom:1px solid #2a3d56}
+.hot-money-heading h2{margin:0;font-size:18px}.hot-money-heading p{margin:5px 0 0;color:#a8bad1;font-size:13px;line-height:1.55}.hot-money-heading>span{color:#a8bad1;font-size:13px;white-space:nowrap}
+.hot-money-controls{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:11px 16px;flex-wrap:wrap;border-bottom:1px solid #263950}.hot-money-subtabs{display:flex;gap:6px}.hot-money-subtabs button{padding:7px 12px;border:1px solid #344a67;border-radius:5px;background:#16253b;color:#abc0db;font-size:14px}.hot-money-subtabs button.active,.hot-money-subtabs button:hover{background:#29466b;border-color:#76a5dc;color:#f0f6ff}.hot-money-controls input{min-width:250px;max-width:100%;padding:8px 10px;border:1px solid #344a67;border-radius:5px;background:#111d30;color:#e3efff;font-size:14px}
+.hot-money-note{margin:0;padding:9px 16px;color:#b8c9dd;font-size:13px;border-bottom:1px solid #263950}.hot-money-table-wrap{overflow-x:auto}.hot-money-table{width:100%;min-width:940px;border-collapse:collapse;font-size:14px;font-variant-numeric:tabular-nums}.hot-money-table th{padding:10px 12px;background:#1a2d47;color:#a9bdd5;font-size:13px;text-align:left;font-weight:500;white-space:nowrap}.hot-money-table td{padding:10px 12px;border-top:1px solid #263950;vertical-align:top}.hot-money-table tr:hover td{background:#172b43}.hot-money-table td:nth-child(4),.hot-money-table td:nth-child(5),.hot-money-table td:nth-child(6),.hot-money-table th:nth-child(4),.hot-money-table th:nth-child(5),.hot-money-table th:nth-child(6){text-align:right;white-space:nowrap}.hot-money-table small{display:block;color:#94aac5;font-size:12px;margin-top:3px}.hot-money-table .hot-money-org{min-width:240px;max-width:520px;line-height:1.5;overflow-wrap:anywhere}.hot-money-roster{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0}.hot-money-roster article{padding:15px 17px;border-bottom:1px solid #263950;min-width:0}.hot-money-roster article:nth-child(odd){border-right:1px solid #263950}.hot-money-roster h3{margin:0 0 7px;font-size:16px;color:#dceafb}.hot-money-roster p{margin:0 0 10px;font-size:14px;line-height:1.7;color:#c2d0e3;overflow-wrap:anywhere}.hot-money-roster article>div{font-size:13px;line-height:1.6;color:#a9bed8;overflow-wrap:anywhere}.hot-money-roster strong{color:#d4e4f8;margin-right:7px}.hot-money-pagination{display:flex;align-items:center;gap:12px;padding:11px 16px;border-top:1px solid #263950;color:#a9bed8;font-size:13px}.hot-money-pagination span{margin-right:auto}.hot-money-pagination button{padding:5px 9px;border:1px solid #344a67;border-radius:5px}.hot-money-pagination button:disabled{opacity:.45}.hot-money-source{margin:0;padding:12px 16px;border-top:1px solid #263950;color:#96acc7;font-size:13px;line-height:1.6}.hot-money-source a{color:#91beff;text-decoration:underline}
+@media(max-width:700px){.hot-money-heading{align-items:flex-start;flex-direction:column}.hot-money-controls input{width:100%}.hot-money-roster{grid-template-columns:1fr}}
+.hot-money-roster details{padding:15px 17px;border-bottom:1px solid #263950;min-width:0}
+.hot-money-roster details:nth-child(odd){border-right:1px solid #263950}
+.hot-money-roster summary{cursor:pointer;list-style:none}
+.hot-money-roster summary::-webkit-details-marker{display:none}
+.hot-money-roster summary::before{content:"▸";color:#8fb6e6;margin-right:8px}
+.hot-money-roster details[open] summary::before{content:"▾"}
+.hot-money-roster summary b{font-size:16px;color:#dceafb}
+.hot-money-roster summary span{display:block;margin:5px 0 0 19px;font-size:13px;color:#a9bed8;white-space:nowrap;text-overflow:ellipsis;overflow:hidden}
+.hot-money-roster details>div{font-size:13px;line-height:1.6;color:#a9bed8;overflow-wrap:anywhere}
+@media(max-width:700px){.hot-money-roster details:nth-child(odd){border-right:0}}
 .board-table{min-width:1380px}
 .board-table .board-row-expanded>td{background:#1c304a}
 .board-table .board-expanded-row>td{padding:0!important;text-align:left!important;white-space:normal!important;background:#101d2e}

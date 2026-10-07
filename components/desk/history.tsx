@@ -15,6 +15,7 @@ import { CandidateExplanation } from "./funnel-browser";
 import { StockResearch } from "./stock-research";
 import { StockDetailCard } from "./stock-detail-card";
 import { BoardBrowser } from "./board-browser";
+import { HotMoneyBrowser } from "./hot-money-browser";
 import type { LimitUpDay } from "@/lib/limit-up";
 import { ValidationPanel } from "./validation-panel";
 import type { FunnelCandidate } from "@/lib/funnel";
@@ -23,7 +24,7 @@ export function HistoricalMarket({view,navigation,onNavigationChange,onSelectSto
   const {ledger}=useDesk();
   const {mode,date,code,selectedStock}=navigation;
   const update=(change:Partial<MarketNavigation>)=>onNavigationChange(current=>({...current,...change}));
-  const [dimension,setDimension]=useState<"theme"|"industry"|"board">("theme");
+  const [dimension,setDimension]=useState<"theme"|"industry"|"board"|"hot-money">("theme");
   const [stockOpen,setStockOpen]=useState(false);
   const [expandedSource,setExpandedSource]=useState<"candidate"|"personal"|"external">("candidate");
   const decision=useDecision<DecisionOverview>(view==="overview"?`/api/market/decision?date=${date}&mode=${mode}`:null,view==="overview"&&mode==="live");
@@ -39,8 +40,8 @@ export function HistoricalMarket({view,navigation,onNavigationChange,onSelectSto
     <div className="history-bar"><h1>{view==="overview"?"市场总览":"选股与自选"}</h1><div className="history-controls"><button className={`button ${mode==="live"?"primary":""}`} onClick={()=>{setStockOpen(false);update({mode:"live",date:chinaNow().date,selectedStock:undefined});}}>今日盘中</button><button className={`button ${mode==="close"?"primary":""}`} onClick={()=>{setStockOpen(false);update({mode:"close",selectedStock:undefined});}}>历史复盘</button><input id="market-date" type="date" aria-label="交易日期" title="交易日期" value={date} onInput={e=>{if(e.currentTarget.value){setStockOpen(false);update({mode:"close",date:e.currentTarget.value,selectedStock:undefined});}}}/>{view==="overview"&&<button className="button" type="button" aria-label="重新读取行情" title="重新读取行情" disabled={decision.busy} onClick={decision.retry}><RefreshCw size={14}/></button>}</div></div>
     {view==="overview"&&<>
       <DecisionHeader {...decision} onDate={d=>update({mode:"close",date:d,selectedStock:undefined})}/>
-      <div className="market-dimension-tabs" aria-label="市场总览维度"><button type="button" aria-pressed={dimension==="theme"} className={dimension==="theme"?"active":""} onClick={()=>setDimension("theme")}>题材主线</button><button type="button" aria-pressed={dimension==="industry"} className={dimension==="industry"?"active":""} onClick={()=>setDimension("industry")}>行业板块</button><button type="button" aria-pressed={dimension==="board"} className={dimension==="board"?"active":""} onClick={()=>setDimension("board")}>涨停榜单</button><span>{dimension==="board"?"当日封板与近7日触板统计":"题材与行业独立排名，分数不跨维度比较"}</span></div>
-      {dimension==="theme"?<ThemeBrowser date={date} mode={mode} onSelect={(s,themeCode)=>{openStock({code:s.code,themeCode,selectedStock:{code:s.code,name:s.name,preClose:s.quote?.preClose}},"external",false);onSelectStock();}}/>:dimension==="industry"?<SectorBrowser date={date} code={code} mode={mode} scored={decision.data?.sectors} onSelect={s=>{openStock({code:s.code,themeCode:undefined,selectedStock:{code:s.code,name:s.name,preClose:s.quote?.preClose}},"external",false);onSelectStock();}}/>:<BoardBrowser date={date} mode={mode} overview={decision.data} renderDetails={(s,onClose)=><SelectionStockDetail key={`${date}:${s.code}`} stock={s} date={date} mode={mode} onClose={onClose}/>} />}
+      <div className="market-dimension-tabs" aria-label="市场总览维度"><button type="button" aria-pressed={dimension==="theme"} className={dimension==="theme"?"active":""} onClick={()=>setDimension("theme")}>题材主线</button><button type="button" aria-pressed={dimension==="industry"} className={dimension==="industry"?"active":""} onClick={()=>setDimension("industry")}>行业板块</button><button type="button" aria-pressed={dimension==="board"} className={dimension==="board"?"active":""} onClick={()=>setDimension("board")}>涨停榜单</button><button type="button" aria-pressed={dimension==="hot-money"} className={dimension==="hot-money"?"active":""} onClick={()=>setDimension("hot-money")}>游资</button><span>{dimension==="board"?"当日封板与近7日触板统计":dimension==="hot-money"?"游资名录与盘后交易明细":"题材与行业独立排名，分数不跨维度比较"}</span></div>
+      {dimension==="theme"?<ThemeBrowser date={date} mode={mode} onSelect={(s,themeCode)=>{openStock({code:s.code,themeCode,selectedStock:{code:s.code,name:s.name,preClose:s.quote?.preClose}},"external",false);onSelectStock();}}/>:dimension==="industry"?<SectorBrowser date={date} code={code} mode={mode} scored={decision.data?.sectors} onSelect={s=>{openStock({code:s.code,themeCode:undefined,selectedStock:{code:s.code,name:s.name,preClose:s.quote?.preClose}},"external",false);onSelectStock();}}/>:dimension==="board"?<BoardBrowser date={date} mode={mode} overview={decision.data} renderDetails={(s,onClose)=><SelectionStockDetail key={`${date}:${s.code}`} stock={s} date={date} mode={mode} onClose={onClose}/>} />:<HotMoneyBrowser date={date} mode={mode}/>}
     </>}
     {view==="selection"&&<div className="selection-list">
       {stockOpen&&expandedSource==="external"&&stock&&<section className="selection-standalone-detail"><SelectionStockDetail key={`${date}:${code}:${navigation.themeCode??""}`} stock={stock} date={date} mode={mode} themeCode={navigation.themeCode} showPreview onClose={()=>setStockOpen(false)}/></section>}
