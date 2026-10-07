@@ -16,6 +16,7 @@ import { StockResearch } from "./stock-research";
 import { StockDetailCard } from "./stock-detail-card";
 import { BoardBrowser } from "./board-browser";
 import { HotMoneyBrowser } from "./hot-money-browser";
+import { SelectionStatusProvider } from "./selection-status";
 import type { LimitUpDay } from "@/lib/limit-up";
 import { ValidationPanel } from "./validation-panel";
 import type { FunnelCandidate } from "@/lib/funnel";
@@ -36,7 +37,7 @@ export function HistoricalMarket({view,navigation,onNavigationChange,onSelectSto
   const personalCandles=useDecision<StockCandleBatch>(view==="selection"&&personal.length?`/api/market/stock-candles?date=${date}&mode=${mode}&codes=${personal.slice(0,40).map(p=>p.code).join(",")}`:null);
   const stock=(selectedStock?.code===code?selectedStock:undefined)??personal.find(s=>s.code===code)??(code?{code,name:code}:undefined);
   const openStock=(change:Partial<MarketNavigation>,source:"candidate"|"personal"|"external",toggle=true)=>{const same=stockOpen&&code===change.code&&expandedSource===source;update(change);setExpandedSource(source);setStockOpen(toggle&&!same);};
-  return <div className="compact-desk">
+  return <SelectionStatusProvider date={date} mode={mode} active={view==="overview"}><div className="compact-desk">
     <div className="history-bar"><h1>{view==="overview"?"市场总览":"选股与自选"}</h1><div className="history-controls"><button className={`button ${mode==="live"?"primary":""}`} onClick={()=>{setStockOpen(false);update({mode:"live",date:chinaNow().date,selectedStock:undefined});}}>今日盘中</button><button className={`button ${mode==="close"?"primary":""}`} onClick={()=>{setStockOpen(false);update({mode:"close",selectedStock:undefined});}}>历史复盘</button><input id="market-date" type="date" aria-label="交易日期" title="交易日期" value={date} onInput={e=>{if(e.currentTarget.value){setStockOpen(false);update({mode:"close",date:e.currentTarget.value,selectedStock:undefined});}}}/>{view==="overview"&&<button className="button" type="button" aria-label="重新读取行情" title="重新读取行情" disabled={decision.busy} onClick={decision.retry}><RefreshCw size={14}/></button>}</div></div>
     {view==="overview"&&<>
       <DecisionHeader {...decision} onDate={d=>update({mode:"close",date:d,selectedStock:undefined})}/>
@@ -56,7 +57,7 @@ export function HistoricalMarket({view,navigation,onNavigationChange,onSelectSto
       />
     </div>}
     {view==="overview"&&decision.data&&<details className="history-details" open={decision.data.warnings.length>0}><summary>数据来源与完整性{decision.data.warnings.length?` · ${decision.data.warnings.length} 项提示`:""}</summary><p>交易日期 {date}（北京时间）。市场指标来自 Tushare A股日线与涨跌停名单；沪深成交额不含北交所。指数K线单独来自上证综指 index_daily，价格不参与全市场情绪评分。收盘排名仅用于复盘。</p><p>市场决策数据获取于 {new Date(decision.data.fetchedAt).toLocaleString("zh-CN",{timeZone:"Asia/Shanghai"})}。</p>{decision.data.warnings.map(w=><p className="amber-text" key={w}>{w}</p>)}<p><a href="https://tushare.pro/document/2?doc_id=27" target="_blank" rel="noreferrer">日线口径</a> · <a href="https://tushare.pro/document/2?doc_id=298" target="_blank" rel="noreferrer">涨跌停口径</a> · <a href="https://tushare.pro/document/1?doc_id=95" target="_blank" rel="noreferrer">指数日线口径</a></p></details>}
-  </div>;
+  </div></SelectionStatusProvider>;
 }
 
 function SelectionStockDetail({stock,candidate,date,mode,themeCode,showPreview=false,onClose}:{stock:HistoryStock;candidate?:FunnelCandidate;date:string;mode:"close"|"live";themeCode?:string;showPreview?:boolean;onClose:()=>void}){

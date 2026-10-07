@@ -1276,11 +1276,12 @@ input[type="datetime-local"] {
 .board-column .factor-list>div{grid-template-columns:minmax(80px,1fr) minmax(40px,90px) 26px}
 .board-column .factor-list>div>span{grid-column:1/-1}
 .board-column .sector-filter-tabs{flex-wrap:wrap}
-.board-column .sector-members .history-table{width:100%;min-width:0}
+.board-column .sector-members .history-table{width:100%;min-width:560px}
 .board-column .sector-members .history-table th,.board-column .sector-members .history-table td{padding:6px 4px}
-.board-column .sector-members .history-table th:first-child{width:58%}
-.board-column .sector-members .history-table th:nth-child(2){width:20%}
-.board-column .sector-members .history-table th:last-child{width:22%}
+.board-column .sector-members .history-table th:first-child{width:37%}
+.board-column .sector-members .history-table th:nth-child(2){width:15%}
+.board-column .sector-members .history-table th:nth-child(3){width:18%}
+.board-column .sector-members .history-table th:last-child{width:30%}
 .member-role-tags{display:flex;gap:3px;flex-wrap:wrap;margin-top:4px}
 .member-role-tags span{padding:2px 5px;border:1px solid #426086;border-radius:3px;color:#b7d6ff;background:#213752;font-size:11px;line-height:1.2}
 .board-card{display:flex;flex-direction:column;gap:9px;min-width:0;padding:12px 13px;border:1px solid #30425d;border-radius:8px;background:#142238;text-align:left;color:#e1eaf7;transition:background .16s,border-color .16s,transform .16s}
@@ -1619,8 +1620,9 @@ input[type="datetime-local"] {
 .hot-money-roster-detail{margin-top:12px;padding-top:12px;border-top:1px solid #344960}
 .hot-money-roster-detail h3{margin:13px 0 8px;font-size:15px}
 .hot-money-roster-detail p{margin:0 0 10px}
-.hot-money-roster-detail .hot-money-table :is(th,td):nth-child(3){text-align:right;white-space:nowrap}
-.hot-money-roster-detail .hot-money-table :is(th,td):nth-child(6){text-align:left;white-space:normal}
+.hot-money-roster-detail .hot-money-table :is(th,td):nth-child(3){text-align:left;white-space:normal}
+.hot-money-roster-detail .hot-money-table :is(th,td):nth-child(4),.hot-money-roster-detail .hot-money-table :is(th,td):nth-child(5),.hot-money-roster-detail .hot-money-table :is(th,td):nth-child(6){text-align:right;white-space:nowrap}
+.hot-money-roster-detail .hot-money-table :is(th,td):nth-child(7){text-align:left;white-space:normal}
 .hot-money-stock-row{cursor:pointer}
 .hot-money-stock-row:hover td{background:#1c304a}
 .hot-money-stock-trigger{display:block;padding:0;border:0;background:transparent;color:#dceafb;text-align:left;cursor:pointer}
@@ -1652,3 +1654,20 @@ input[type="datetime-local"] {
 .board-selection-status.active{border-color:#568e78;background:#19382f;color:#a5e5c6}
 .board-expanded-tools{display:flex;justify-content:flex-end;padding:10px 16px 0}
 @media(max-width:850px){.funnel-market-note{width:100%;margin:3px 0 0}.funnel-market-note span{max-width:calc(100% - 80px)}}
+.selection-source-cell{display:flex;align-items:center;gap:5px;flex-wrap:wrap;min-width:128px;white-space:normal;line-height:1.4}
+.selection-source-badge{display:inline-block;padding:3px 6px;border:1px solid #405977;border-radius:4px;color:#9fb4d0;font-size:11px;white-space:nowrap}
+.selection-source-badge.auto{border-color:#5b8cbb;background:#1b3856;color:#b7d9ff}
+.selection-source-badge.manual{border-color:#568e78;background:#19382f;color:#a5e5c6}
+.selection-source-add{padding:3px 6px;border:1px solid #54769f;border-radius:4px;background:#1a3553;color:#b7d9ff;font-size:11px;white-space:nowrap;cursor:pointer}
+.selection-source-add:hover{background:#285075}
+.selection-source-add:disabled{opacity:.55;cursor:default}
+.selection-source-add:focus-visible{outline:2px solid #91bcf1;outline-offset:2px}
+.selection-source-cell small{color:#d7b879;font-size:11px}
+.board-table :is(th,td):nth-child(4){text-align:left}
+.board-table td:nth-child(4){min-width:150px}
+.hot-money-trades-table{min-width:1190px}
+.hot-money-trades-table :is(th,td):nth-child(4){text-align:left;white-space:normal}
+.hot-money-trades-table :is(th,td):nth-child(7){text-align:right;white-space:nowrap}
+.hot-money-stock-table{min-width:1000px}
+.hot-money-stock-table :is(th,td):nth-child(4){text-align:left;white-space:nowrap}
+.hot-money-stock-table :is(th,td):nth-child(7){text-align:right;white-space:nowrap}
