@@ -1,5 +1,5 @@
 "use client";
-import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
+import { Fragment, useState } from "react";
 import { RefreshCw } from "lucide-react";
 import { Panel } from "./workspace";
 import { useDesk } from "./provider";
@@ -14,6 +14,7 @@ import { ThemeBrowser } from "./theme-browser";
 import { FunnelBrowser } from "./funnel-browser";
 import { CandidateExplanation } from "./funnel-browser";
 import { StockResearch } from "./stock-research";
+import { StockDetailCard } from "./stock-detail-card";
 import { BoardBrowser } from "./board-browser";
 import { ValidationPanel } from "./validation-panel";
 import type { FunnelCandidate } from "@/lib/funnel";
@@ -51,23 +52,10 @@ export function HistoricalMarket({view,navigation,onNavigationChange,onSelectSto
 function SelectionStockDetail({stock,candidate,date,mode,themeCode,onClose}:{stock:HistoryStock;candidate?:FunnelCandidate;date:string;mode:"close"|"live";themeCode?:string;onClose:()=>void}){
   return <div className="stock-detail-content" role="region" aria-label={`${stock.name}详情`}>
     <div className="selection-detail-heading"><span>{date} · {mode==="live"?"盘中监测":"历史复盘"}</span><button className="text-link" onClick={onClose}>收起详情</button></div>
-    {candidate&&<section className="stock-detail-section"><CandidateExplanation candidate={candidate}/></section>}
-    <section className="stock-detail-section"><StockChartTabs stock={stock} date={date} marketMode={mode} themeCode={themeCode}/></section>
-    <DeferredDetailSection label="公司与事件核验"><StockResearch code={stock.code} name={stock.name} date={date} candidate={candidate}/></DeferredDetailSection>
-    <DeferredDetailSection label="核心度"><CoreProfile stock={stock} date={date} mode={mode}/></DeferredDetailSection>
-    {mode==="close"&&<DeferredDetailSection label="历史检验"><ValidationPanel key={`${stock.code}:${themeCode??""}:${date}`} code={stock.code} date={date} themeCode={themeCode}/></DeferredDetailSection>}
+    {candidate&&<StockDetailCard title="为什么列入观察" subtitle="入池依据、待核对项与下一步条件" defaultOpen><CandidateExplanation candidate={candidate}/></StockDetailCard>}
+    <StockDetailCard title="个股行情" subtitle="分时 / 日K · 点击蜡烛查看对应日期" defaultOpen><StockChartTabs stock={stock} date={date} marketMode={mode} themeCode={themeCode}/></StockDetailCard>
+    <StockResearch code={stock.code} name={stock.name} date={date} candidate={candidate}/>
+    <StockDetailCard title="板块地位与核心度" subtitle="行业核心度因子与角色依据"><CoreProfile stock={stock} date={date} mode={mode}/></StockDetailCard>
+    {mode==="close"&&<StockDetailCard title="历史信号检验" subtitle="按需运行所选股票与题材的历史检验"><ValidationPanel key={`${stock.code}:${themeCode??""}:${date}`} code={stock.code} date={date} themeCode={themeCode}/></StockDetailCard>}
   </div>;
-}
-
-function DeferredDetailSection({label,children}:{label:string;children:ReactNode}){
-  const [visible,setVisible]=useState(false);
-  const section=useRef<HTMLElement>(null);
-  useEffect(()=>{
-    if(visible||!section.current)return;
-    if(typeof IntersectionObserver==="undefined"){setVisible(true);return;}
-    const observer=new IntersectionObserver(entries=>{if(entries.some(entry=>entry.isIntersecting)){setVisible(true);observer.disconnect();}},{rootMargin:"500px"});
-    observer.observe(section.current);
-    return ()=>observer.disconnect();
-  },[visible]);
-  return <section ref={section} className="stock-detail-section">{visible?children:<p className="stock-detail-deferred">{label} · 滚动到此处读取</p>}</section>;
 }
