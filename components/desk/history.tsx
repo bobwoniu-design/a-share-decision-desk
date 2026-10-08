@@ -47,7 +47,7 @@ export function HistoricalMarket({view,navigation,onNavigationChange,onSelectSto
     {view==="selection"&&<div className="selection-list">
       {stockOpen&&expandedSource==="external"&&stock&&<section className="selection-standalone-detail"><SelectionStockDetail key={`${date}:${code}:${navigation.themeCode??""}`} stock={stock} date={date} mode={mode} themeCode={navigation.themeCode} showPreview onClose={()=>setStockOpen(false)}/></section>}
       <FunnelBrowser
-        date={date} mode={mode} limitUp={limitUp} personal={personal} personalCandles={personalCandles.data}
+        date={date} mode={mode} onDate={d=>{setStockOpen(false);update({mode:"close",date:d,selectedStock:undefined});}} limitUp={limitUp} personal={personal} personalCandles={personalCandles.data}
         expandedCode={stockOpen?code:null} expandedSource={expandedSource}
         onSelect={c=>openStock({code:c.code,themeCode:c.theme?.code,selectedStock:{code:c.code,name:c.name}},"candidate")}
         onSelectPersonal={p=>openStock({code:p.code,themeCode:undefined,selectedStock:{code:p.code,name:p.name}},"personal")}

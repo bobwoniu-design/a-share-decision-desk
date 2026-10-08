@@ -12,7 +12,7 @@
     "start": "node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js dev --config dist/server/wrangler.json --local --persist-to .wrangler/state --ip 127.0.0.1 --inspector-port 0",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
     "db:generate": "drizzle-kit generate",
-    "test": "node --experimental-strip-types --test tests/ledger.test.mjs tests/market.test.mjs tests/decision.test.mjs tests/theme.test.mjs tests/member-roles.test.mjs tests/candle.test.mjs tests/block-minute.test.mjs tests/candidate-risk.test.mjs tests/research-data.test.mjs tests/limit-up.test.mjs tests/stock-lookup.test.mjs"
+    "test": "node --experimental-strip-types --test tests/ledger.test.mjs tests/market.test.mjs tests/decision.test.mjs tests/theme.test.mjs tests/member-roles.test.mjs tests/candle.test.mjs tests/block-minute.test.mjs tests/candidate-risk.test.mjs tests/research-data.test.mjs tests/limit-up.test.mjs tests/stock-lookup.test.mjs tests/market-recovery.test.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",

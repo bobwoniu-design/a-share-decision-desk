@@ -1,7 +1,8 @@
 import {decisionData,decisionMinutes,minuteBasis} from "@/lib/decision-data";
 import {decisionFunnel} from "@/lib/funnel";
 import {validDate} from "@/lib/market-data";
-import {MarketError} from "@/lib/tushare";
+import {MarketError,marketDates} from "@/lib/tushare";
+import {isIpLimit,marketRecovery} from "@/lib/market-recovery";
 import {recordIntraday} from "@/lib/intraday-market";
 import {derivedCache} from "@/lib/derived-cache";
 import {chinaNow} from "@/lib/minute-engine";
@@ -25,5 +26,13 @@ export async function GET(request:Request){
     const sector=code?overview.sectors.find(s=>s.cores.some(c=>c.code===code)):null;
     const output=view==="stock"?{date,core:sector?.cores.find(c=>c.code===code)??null,sector:sector?{...sector,cores:sector.cores.slice(0,10)}:null}: {...(mode==="live"?await recordIntraday(overview):overview),sectors:overview.sectors.map(s=>({...s,cores:s.cores.slice(0,10)}))};
     return Response.json(output,{headers:{"Cache-Control":"private, no-store"}});
-  }catch(e){return Response.json({error:e instanceof MarketError?e.message:"决策数据读取或校验失败，未输出替代评分"},{status:502});}
+  }catch(e){
+    const message=e instanceof MarketError?e.message:"决策数据读取或校验失败，未输出替代评分";
+    let dates:string[]=[];
+    // rt_k runs after this same calendar query; recovery normally reuses its cache.
+    if(mode==="live"&&isIpLimit(message)){
+      try{dates=(await marketDates(date,20)).dates;}catch{/* No guessed trading date when calendar is unavailable. */}
+    }
+    return Response.json(marketRecovery(message,date,mode,dates),{status:502,headers:{"Cache-Control":"private, no-store"}});
+  }
 }

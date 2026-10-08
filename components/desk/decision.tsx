@@ -1,6 +1,7 @@
 "use client";
 import {useEffect,useMemo,useRef,useState} from "react";
 import {Panel} from "./workspace";
+import {MarketFailure} from "./market-failure";
 import {Plot} from "./market";
 import {Slider} from "@/components/ui/slider";
 import {Dialog,DialogContent,DialogHeader,DialogTitle,DialogDescription} from "@/components/ui/dialog";
@@ -15,23 +16,25 @@ import {QualificationScoreCards} from "./qualification-score-cards";
 const localDecisionCache=new Map<string,{until:number;value:unknown}>();
 export function useDecision<T>(url:string|null,live=false){
   const [data,setData]=useState<T|null>(null),[error,setError]=useState(""),[busy,setBusy]=useState(false),[attempt,setAttempt]=useState(0);
+  const [recoveryDate,setRecoveryDate]=useState<string|null>(null);
   const lastUrl=useRef<string|null>(null);
   useEffect(()=>{const controller=new AbortController();let timer:ReturnType<typeof setTimeout>|undefined;
     const force=lastUrl.current===url&&attempt>0;lastUrl.current=url;
     const cached=url&&!force?localDecisionCache.get(url):undefined;
     const ready=cached&&cached.until>Date.now();
-    setData(ready?cached.value as T:null);setError("");setBusy(!!url&&!ready);
+    setData(ready?cached.value as T:null);setError("");setRecoveryDate(null);setBusy(!!url&&!ready);
     if(!url)return()=>controller.abort();
     const read=async(refresh=false)=>{
       let blocked=false;
-      try{const endpoint=refresh?`${url}${url.includes("?")?"&":"?"}refresh=1`:url;const response=await fetch(endpoint,{signal:controller.signal,cache:"no-store"});const d=await response.json() as T & {error?:string;blocked?:boolean};if(!response.ok)throw new Error(d.error||"决策数据暂时不可用");if(!controller.signal.aborted){const requestDate=new URL(url,location.origin).searchParams.get("date"),ttl=live?15000:requestDate===chinaNow().date?60000:7*86400000,minutes=url.includes("view=minutes")?d as unknown as MinuteBundle:null,save=!d.blocked&&(!minutes||minutes.bars.length>0&&minutes.peers.every(p=>!p.error)&&minutes.themePeers.every(p=>!p.error));setData(d);setError("");if(save){localDecisionCache.set(url,{until:Date.now()+ttl,value:d});while(localDecisionCache.size>80)localDecisionCache.delete(localDecisionCache.keys().next().value!);}}blocked=!!d.blocked;}
-      catch(e){if(!controller.signal.aborted){const message=e instanceof Error?e.message:"读取失败";setData(null);setError(message);blocked=/40204|IP数量|权限|访问频次/.test(message);}}
+      if(!controller.signal.aborted){setBusy(true);setRecoveryDate(null);}
+      try{const endpoint=refresh?`${url}${url.includes("?")?"&":"?"}refresh=1`:url;const response=await fetch(endpoint,{signal:controller.signal,cache:"no-store"});const d=await response.json() as T & {error?:string;blocked?:boolean;recoveryDate?:string|null};blocked=!!d.blocked;if(!response.ok){if(!controller.signal.aborted)setRecoveryDate(d.recoveryDate??null);throw new Error(d.error||"决策数据暂时不可用");}if(!controller.signal.aborted){const requestDate=new URL(url,location.origin).searchParams.get("date"),ttl=live?15000:requestDate===chinaNow().date?60000:7*86400000,minutes=url.includes("view=minutes")?d as unknown as MinuteBundle:null,save=!d.blocked&&(!minutes||minutes.bars.length>0&&minutes.peers.every(p=>!p.error)&&minutes.themePeers.every(p=>!p.error));setData(d);setError("");if(save){localDecisionCache.set(url,{until:Date.now()+ttl,value:d});while(localDecisionCache.size>80)localDecisionCache.delete(localDecisionCache.keys().next().value!);}}blocked=!!d.blocked;}
+      catch(e){if(!controller.signal.aborted){const message=e instanceof Error?e.message:"读取失败";setData(null);setError(message);blocked=blocked||/40204|IP数量|权限|访问频次/.test(message);}}
       finally{if(!controller.signal.aborted){setBusy(false);if(live&&!blocked)timer=setTimeout(tick,60000);}}
     };
     const tick=()=>{if(controller.signal.aborted)return;if(document.visibilityState==="visible"&&liveSession(chinaNow().time))void read();else timer=setTimeout(tick,60000);};
     if(!ready||live)void read(force);return()=>{controller.abort();if(timer)clearTimeout(timer);};
   },[url,live,attempt]);
-  return {data,error,busy,retry:()=>setAttempt(a=>a+1)};
+  return {data,error,busy,recoveryDate,retry:()=>setAttempt(a=>a+1)};
 }
 const sign=(v:number|null|undefined)=>v==null?"—":`${v>=0?"+":""}${v.toFixed(0)}`;
 const number=(v:number|null|undefined,n=0)=>v==null?"—":v.toFixed(n);
@@ -40,14 +43,14 @@ export function Factors({factors}:{factors:Factor[]}){return <div className="fac
 function MinuteReplayControl({first,time,count,total,onCursor,modal=false}:{first:string;time:string;count:number;total:number;onCursor:(value:number|null)=>void;modal?:boolean}){
   return <div className="replay-control"><span>{first}</span><Slider aria-label={modal?"放大图决策回放时点":"决策引擎回放时点"} min={1} max={Math.max(total,2)} value={[count]} onValueChange={v=>onCursor(v[0])}/><span>{time}</span><button className="text-link" onClick={()=>onCursor(null)}>收盘</button></div>;
 }
-export function DecisionHeader({data,error,busy,retry,onDate}:{data:DecisionOverview|null;error:string;busy:boolean;retry:()=>void;onDate?:(date:string)=>void}){
+export function DecisionHeader({data,error,busy,retry,recoveryDate,onDate}:{data:DecisionOverview|null;error:string;busy:boolean;retry:()=>void;recoveryDate?:string|null;onDate?:(date:string)=>void}){
   const [scoreOpen,setScoreOpen]=useState(false),[chartOpen,setChartOpen]=useState(false);
   const index=useDecision<MarketIndexHistory>(data?.mode==="close"?`/api/market/index-history?date=${data.date}`:null);
   const m=data?.market;
   const latest=data?.marketDays.at(-1);
   return <section className="decision-header" aria-label="短线决策链">
     <div className="decision-flow"><b>决策引擎</b><span>市场情绪 → 题材 / 行业 → 核心股 → 分钟状态 → 条件核对 → 人工决策</span><small>P0.3 · 规则分</small></div>
-    {busy?<p className="history-small-empty" role="status">正在计算近20个交易日的市场、板块与核心度…</p>:error?<p className="error-banner" role="alert">{error} <button className="text-link" onClick={retry}>重试评分</button></p>:data&&m&&<>
+    {busy?<p className="history-small-empty" role="status">正在计算近20个交易日的市场、板块与核心度…</p>:error?<MarketFailure error={error} retry={retry} recoveryDate={recoveryDate} onDate={onDate}/>:data&&m&&<>
       <div className="market-decision">
         <div className="emotion-score"><div className={`market-emotion-top ${data.mode==="close"?"has-chart":""}`}><div className="market-emotion-values"><small>市场情绪分</small><button type="button" className="market-score-trigger" onClick={()=>setScoreOpen(true)} aria-label={`市场情绪 ${number(m.score)} 分，查看评分详情`} aria-haspopup="dialog" aria-expanded={scoreOpen}><strong>{number(m.score)}<em>/100</em></strong><span>点击查看评分详情</span></button><span className={(m.delta??0)<0?"down":"up"}>{(m.delta??0)<0?"↓":"↑"} {sign(m.delta)} 较前交易日</span></div>{data.mode==="close"&&<MarketIndexMini history={index.data} busy={index.busy} error={index.error} onOpen={()=>setChartOpen(true)}/>}</div><div className="market-amount"><small>沪深A股成交额</small><b>{latest?`${latest.amountYi.toLocaleString("zh-CN",{maximumFractionDigits:1})} 亿`:"—"}</b></div></div>
         <div className="market-verdict"><small className="market-column-label">当前阶段与判断</small><div><b>{m.previousCycle&&m.previousCycle!==m.cycle?`${m.previousCycle} → `:""}{m.cycle}</b><PhaseTag phase={m.phase}/><span>赚钱效应：{m.earning}</span><span>高位风险：<strong className={m.risk==="高"?"down":"amber-text"}>{m.risk}</strong></span></div><p>{m.posture}</p>{data.mode==="live"&&<p className="market-caution">警惕：{m.playbook.avoid}</p>}<small>{data.asOf} · {data.mode==="live"?"盘中快照评分":"收盘阶段"} · 晋级 {number(m.promotion.value,1)}%（{m.promotion.advanced}/{m.promotion.total}） · 昨高位溢价 {number(m.highPremium.value,2)}%</small></div>
