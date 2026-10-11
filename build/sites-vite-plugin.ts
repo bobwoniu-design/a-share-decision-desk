@@ -29,7 +29,10 @@ async function exists(path: string): Promise<boolean> {
   }
 }
 
-export function sites({ mockAuth = true } = {}): Plugin {
+export function sites({ mockAuth = true, localProxyHosts = [] as string[] } = {}): Plugin {
+  // Explicit host aliases for a trusted proxy connecting over loopback.
+  // The socket-address and same-origin checks below still apply.
+  const allowedLocalHosts = new Set([...localHosts, ...localProxyHosts]);
   let root = process.cwd();
   let command: "build" | "serve" = "build";
 
@@ -71,7 +74,7 @@ export function sites({ mockAuth = true } = {}): Plugin {
           .replace(/^\[|\]$/g, "")
           .toLowerCase();
         if (
-          !localHosts.has(hostname) ||
+          !allowedLocalHosts.has(hostname) ||
           !localAddresses.has(request.socket.remoteAddress ?? "") ||
           url.origin !== authority.origin
         ) {

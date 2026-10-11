@@ -8,6 +8,12 @@ export const marketCache = sqliteTable("market_cache", {
   cacheKey: text("cache_key").primaryKey(),
   payload: text("payload").notNull(),
 });
+export const selectionDays = sqliteTable("selection_days", {
+  owner:text("owner").notNull(),
+  date:text("date").notNull(),
+  payload:text("payload").notNull(),
+  revision:integer("revision").notNull().default(0),
+},t=>[primaryKey({columns:[t.owner,t.date]})]);
 export const ledgers = sqliteTable("ledgers", {
   owner: text("owner").primaryKey(),
   payload: text("payload").notNull(),

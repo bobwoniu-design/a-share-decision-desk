@@ -8,7 +8,22 @@ import {
   importCSV,
   toCSV,
   parseCSV,
+  brokerStatementSchema,
 } from "../lib/ledger.ts";
+test("券商原始记录允许未知费用及基金，且不虚构核算交易",()=>{
+  const statement={id:"sample",date:"2026-10-08",source:"user_screenshots",status:"pending_reconciliation",capturedTime:"16:04",displayedHoldingCount:2,holdingsComplete:false,notes:[],sourceImages:["sample.jpg"],updatedAt:"",excludedOrders:[],positions:[{code:"600000.SH",name:"样本",qty:100,available:0,brokerCost:10.1234,marketPrice:11}],fills:[{id:"fill",code:"161125.SZ",name:"基金样本",side:"sell",orderTime:"13:17:40",price:3.305,qty:123,fee:null,sourceImages:["sample.jpg"]}]};
+  const parsed=brokerStatementSchema.parse(statement);
+  assert.equal(parsed.fills[0].fee,null);
+  assert.equal(parsed.positions[0].brokerCost,10.1234);
+  const ledger=blankLedger();ledger.brokerStatements=[parsed];
+  assert.equal(calculate(ledger.trades).realized,0);
+  assert.equal(calculate(ledger.trades).positions.length,0);
+  assert.equal(dailySummary(ledger,statement.date).count,0);
+  assert.equal(brokerStatementSchema.safeParse({...statement,fills:[...statement.fills,...statement.fills]}).success,false);
+  assert.equal(brokerStatementSchema.safeParse({...statement,positions:[...statement.positions,...statement.positions]}).success,false);
+  assert.equal(brokerStatementSchema.safeParse({...statement,positions:[{...statement.positions[0],available:101}]}).success,false);
+  assert.equal(brokerStatementSchema.safeParse({...statement,fills:[{...statement.fills[0],orderTime:"29:00:00"}]}).success,false);
+});
 import {personalFeedback} from "../lib/personal-feedback.ts";
 let n = 0;
 const t = (

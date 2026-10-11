@@ -7,6 +7,7 @@ import {
   eventSchema,
   calculate,
   fingerprint,
+  brokerStatementSchema,
   type Ledger,
 } from "@/lib/ledger";
 export const dynamic = "force-dynamic";
@@ -20,10 +21,12 @@ const mutationSchema = z.object({
     "event",
     "watch",
     "restore",
+    "statement",
   ]),
   data: z.unknown(),
 });
 const restoredSchema = z.object({
+  brokerStatements: z.array(brokerStatementSchema).max(500).optional(),
   trades: z.array(tradeSchema).max(2500),
   reviews: z.record(reviewSchema),
   reviewHistory: z.array(reviewSchema).max(2000),
@@ -102,6 +105,18 @@ export async function POST(request: Request) {
           detail = "新增 " + trade.code;
         }
       }
+      if (action === "statement") {
+        const statement = brokerStatementSchema.parse(data);
+        statement.updatedAt = stamp;
+        const statements = ledger.brokerStatements ?? [];
+        const index = statements.findIndex(s => s.id === statement.id);
+        if (index >= 0) {
+          previous = structuredClone(statements[index]);
+          statements[index] = statement;
+        } else statements.push(statement);
+        ledger.brokerStatements = statements;
+        detail = `登记券商记录 ${statement.date}：${statement.fills.length} 笔成交、${statement.positions.length} 只持仓，成本及费用待对账`;
+      }
       if (action === "void") {
         const { id } = z.object({ id: z.string() }).parse(data);
         const t = ledger.trades.find((t) => t.id === id);
@@ -175,7 +190,8 @@ export async function POST(request: Request) {
           ledger.trades.length ||
           Object.keys(ledger.reviews).length ||
           ledger.events.length ||
-          ledger.watchlist.length
+          ledger.watchlist.length ||
+          ledger.brokerStatements?.length
         )
           throw new Error("仅支持恢复到空账本，已有记录请使用成交 CSV 合并");
         ledger = backup;

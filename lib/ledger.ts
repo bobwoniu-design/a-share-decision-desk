@@ -66,12 +66,60 @@ export const eventSchema = z.object({
   verified: z.boolean(),
 });
 export type NewsEvent = z.infer<typeof eventSchema>;
+// Broker evidence can be recorded before opening costs and fees are available.
+// It must never be passed to calculate() as invented buys or zero-fee fills.
+export const brokerStatementSchema = z.object({
+  id: z.string().min(1).max(100),
+  date,
+  source: z.literal("user_screenshots"),
+  status: z.literal("pending_reconciliation"),
+  capturedTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),
+  displayedHoldingCount: z.number().int().nonnegative().nullable(),
+  holdingsComplete: z.boolean(),
+  notes: z.array(z.string().max(3000)).max(30),
+  sourceImages: z.array(z.string().min(1).max(200)).min(1).max(50),
+  fills: z.array(z.object({
+    id: z.string().min(1).max(100),
+    code: z.string().regex(/^\d{6}\.(SH|SZ|BJ)$/),
+    name: z.string().min(1).max(30),
+    side: z.enum(["buy", "sell"]),
+    orderTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d:[0-5]\d$/),
+    price: z.number().positive(),
+    qty: z.number().int().positive(),
+    fee: z.number().nonnegative().nullable(),
+    sourceImages: z.array(z.string()).min(1),
+  })).max(500),
+  positions: z.array(z.object({
+    code: z.string().regex(/^\d{6}\.(SH|SZ|BJ)$/),
+    name: z.string().min(1).max(30),
+    qty: z.number().int().positive(),
+    available: z.number().int().nonnegative(),
+    brokerCost: z.number().nonnegative(),
+    marketPrice: z.number().positive(),
+  }).refine(p => p.available <= p.qty, "可用数量不能超过持仓数量")).max(200),
+  excludedOrders: z.array(z.object({
+    code: z.string().regex(/^\d{6}\.(SH|SZ|BJ)$/),
+    name: z.string().min(1).max(30),
+    orderTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d:[0-5]\d$/),
+    price: z.number().positive(),
+    qty: z.number().int().positive(),
+    reason: z.literal("全部撤单，成交数量为0"),
+  })).max(500),
+  updatedAt: z.string(),
+}).superRefine((s, ctx) => {
+  if (new Set(s.fills.map(f => f.id)).size !== s.fills.length)
+    ctx.addIssue({code: z.ZodIssueCode.custom, message: "券商成交记录ID重复"});
+  if (new Set(s.positions.map(p => p.code)).size !== s.positions.length)
+    ctx.addIssue({code: z.ZodIssueCode.custom, message: "券商持仓代码重复"});
+});
+export type BrokerStatement = z.infer<typeof brokerStatementSchema>;
 export type Ledger = {
   trades: Trade[];
   reviews: Record<string, Review>;
   reviewHistory: Review[];
   events: NewsEvent[];
   watchlist: { code: string; name: string }[];
+  brokerStatements?: BrokerStatement[];
 };
 export const blankLedger = (): Ledger => ({
   trades: [],
@@ -79,6 +127,7 @@ export const blankLedger = (): Ledger => ({
   reviewHistory: [],
   events: [],
   watchlist: [],
+  brokerStatements: [],
 });
 export const cents = (value: number) =>
   Math.round((value + Number.EPSILON) * 100);

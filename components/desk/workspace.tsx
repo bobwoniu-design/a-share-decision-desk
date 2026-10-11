@@ -50,6 +50,7 @@ import {
 import { toast } from "sonner";
 import { useDesk } from "./provider";
 import { personalFeedback } from "@/lib/personal-feedback";
+import { BrokerStatements } from "./broker-statements";
 import {
   calculate,
   dailySummary,
@@ -154,11 +155,13 @@ export function download(name: string, content: string, type = "text/plain") {
   a.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
-export function Positions() {
+export function Positions({showStatements = true}:{showStatements?:boolean} = {}) {
   const { ledger, setTrade, loading } = useDesk();
   const result = calculate(ledger.trades);
   return (
-    <Panel title="我的持仓" extra={<span className="muted">真实账本</span>}>
+    <>
+    {showStatements && <BrokerStatements statements={ledger.brokerStatements ?? []}/>}
+    <Panel title={ledger.brokerStatements?.length ? "交易账本核算持仓" : "我的持仓"} extra={<span className="muted">真实账本</span>}>
       {result.positions.length ? (
         <div className="page-pad">
           {result.positions.map((p) => (
@@ -186,14 +189,15 @@ export function Positions() {
       ) : (
         <div className="empty-compact">
           <BookOpen size={27} />
-          <b>{loading ? "正在读取账本" : "从第一笔交易开始"}</b>
-          <p>已有持仓可先录入期初数量和成本。</p>
+          <b>{loading ? "正在读取账本" : ledger.brokerStatements?.length ? "券商记录已登记，核算账本待补齐" : "从第一笔交易开始"}</b>
+          <p>{ledger.brokerStatements?.length ? "补齐期初持仓和成交费用后再合并核算，避免重复持仓或虚构盈亏。" : "已有持仓可先录入期初数量和成本。"}</p>
           <button className="button" onClick={() => setTrade(null)}>
             记录交易
           </button>
         </div>
       )}
     </Panel>
+    </>
   );
 }
 export function TradeDialog() {
@@ -639,7 +643,7 @@ export function Trades() {
           </div>
         </Panel>
         <div className="column">
-          <Positions />
+          <Positions showStatements={false} />
           <Panel title="记录，也记录当时的想法">
             <div className="page-pad">
               <p className="muted">
